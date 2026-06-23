@@ -1,0 +1,157 @@
+@page "/register"
+@layout LoginLayout
+@using System.ComponentModel.DataAnnotations
+@inject ITransportadosApiClient Api
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Alta de empresa - Transportados</PageTitle>
+
+<MudPaper Class="pa-6" Elevation="2" Style="max-width: 640px; width: 100%;">
+    <div class="d-flex align-center mb-4">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                       Color="Color.Secondary"
+                       OnClick="GoToLogin"
+                       aria-label="Volver al login"
+                       title="Volver al login" />
+        <MudText Typo="Typo.h6" Class="ms-2">Alta de empresa</MudText>
+    </div>
+
+    <div class="transportados-login-brand">
+        <img src="/android-chrome-192x192.png" alt="Transportados" class="transportados-login-brand-icon" />
+        <MudText Typo="Typo.h5" Class="transportados-login-brand-title">Transportados</MudText>
+    </div>
+
+    @if (_createdRegistration != null)
+    {
+        <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-4">
+            @_createdRegistration.Message
+        </MudAlert>
+
+        <MudText Typo="Typo.subtitle2">Empresa</MudText>
+        <MudText Typo="Typo.body1">@_createdRegistration.Tenant.Name</MudText>
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4 d-block">
+            @(_createdRegistration.RequiresApproval ? "Estado pendiente" : "Activa")
+        </MudText>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   FullWidth="true"
+                   OnClick="GoToLogin"
+                   StartIcon="@Icons.Material.Filled.Login">
+            Volver al login
+        </MudButton>
+    }
+    else
+    {
+        <EditForm Model="_model" OnValidSubmit="HandleRegister" FormName="transportadosRegisterCompanyForm">
+            <DataAnnotationsValidator />
+
+            <MudTextField @bind-Value="_model.CompanyName"
+                          For="() => _model.CompanyName"
+                          Label="Nombre de la empresa"
+                          Variant="Variant.Outlined"
+                          Immediate="true"
+                          Required="true"
+                          RequiredError="El nombre de la empresa es requerido"
+                          Class="mb-3" />
+
+            <MudTextField @bind-Value="_model.ContactFullName"
+                          For="() => _model.ContactFullName"
+                          Label="Responsable"
+                          Variant="Variant.Outlined"
+                          Immediate="true"
+                          Required="true"
+                          RequiredError="El responsable es requerido"
+                          Class="mb-3" />
+
+            <MudTextField @bind-Value="_model.ContactEmail"
+                          For="() => _model.ContactEmail"
+                          Label="Email de contacto"
+                          Variant="Variant.Outlined"
+                          InputType="InputType.Email"
+                          Immediate="true"
+                          Required="true"
+                          RequiredError="El email de contacto es requerido"
+                          Class="mb-3" />
+
+            <MudTextField @bind-Value="_model.ContactPhone" Label="Telefono" Variant="Variant.Outlined" Immediate="true" Class="mb-3" />
+            <MudTextField @bind-Value="_model.AddressLine" Label="Direccion" Variant="Variant.Outlined" Immediate="true" Class="mb-3" />
+            <MudTextField @bind-Value="_model.City" Label="Ciudad" Variant="Variant.Outlined" Immediate="true" Class="mb-3" />
+
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       Disabled="_isLoading"
+                       StartIcon="@(_isLoading ? Icons.Material.Filled.HourglassTop : Icons.Material.Filled.Business)">
+                @(_isLoading ? "Enviando" : "Solicitar alta")
+            </MudButton>
+        </EditForm>
+    }
+</MudPaper>
+
+@code {
+    private readonly RegisterCompanyAccountModel _model = new();
+    private RegisterCompanyAccountResponseDto? _createdRegistration;
+    private bool _isLoading;
+
+    private async Task HandleRegister()
+    {
+        _isLoading = true;
+        try
+        {
+            var request = new RegisterCompanyAccountRequestDto
+            {
+                CompanyName = _model.CompanyName,
+                ContactFullName = _model.ContactFullName,
+                ContactEmail = _model.ContactEmail,
+                ContactPhone = _model.ContactPhone,
+                AddressLine = _model.AddressLine,
+                City = _model.City
+            };
+
+            _createdRegistration = await Api.PostAsync<RegisterCompanyAccountRequestDto, RegisterCompanyAccountResponseDto>(
+                BuildRegisterPath(),
+                request);
+
+            if (_createdRegistration == null)
+            {
+                Snackbar.Add("No se pudo registrar la empresa.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add("Alta recibida.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void GoToLogin() => Navigation.NavigateTo("/login");
+
+    private string BuildRegisterPath() =>
+        $"auth/register?publicOrigin={Uri.EscapeDataString(Navigation.BaseUri)}";
+
+    private sealed class RegisterCompanyAccountModel
+    {
+        [Required(ErrorMessage = "El nombre de la empresa es requerido")]
+        public string CompanyName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El responsable es requerido")]
+        public string ContactFullName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El email de contacto es requerido")]
+        [EmailAddress(ErrorMessage = "Ingrese un email valido")]
+        public string ContactEmail { get; set; } = string.Empty;
+
+        public string? ContactPhone { get; set; }
+        public string? AddressLine { get; set; }
+        public string? City { get; set; }
+    }
+}

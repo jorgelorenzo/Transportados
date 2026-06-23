@@ -1,0 +1,49 @@
+@using Transportados.Platform.UI.Models
+
+@if (!string.IsNullOrWhiteSpace(SelectedLabel))
+{
+    @if (Options.Count > 1)
+    {
+        <MudMenu Dense="true"
+                 Class="@MenuClass"
+                 AnchorOrigin="Origin.BottomLeft"
+                 TransformOrigin="Origin.TopLeft">
+            <ActivatorContent>
+                <MudButton Color="Color.Inherit" Variant="Variant.Text" Class="@ButtonClass">
+                    @SelectedLabel
+                    <MudIcon Icon="@Icons.Material.Filled.ExpandMore" Class="ml-1" />
+                </MudButton>
+            </ActivatorContent>
+            <ChildContent>
+                @foreach (var option in Options)
+                {
+                    <MudMenuItem OnClick="@(() => OnSelected.InvokeAsync(option.Key))">@option.Label</MudMenuItem>
+                }
+            </ChildContent>
+        </MudMenu>
+    }
+    else
+    {
+        <MudText Typo="Typo.h6" Class="@LabelClass">@SelectedLabel</MudText>
+    }
+}
+
+@code {
+    [Parameter]
+    public IReadOnlyList<PlatformContextOption> Options { get; set; } = Array.Empty<PlatformContextOption>();
+
+    [Parameter]
+    public string? SelectedLabel { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnSelected { get; set; }
+
+    [Parameter]
+    public string MenuClass { get; set; } = "ml-3";
+
+    [Parameter]
+    public string ButtonClass { get; set; } = "text-transform-none px-2";
+
+    [Parameter]
+    public string LabelClass { get; set; } = "ml-3";
+}

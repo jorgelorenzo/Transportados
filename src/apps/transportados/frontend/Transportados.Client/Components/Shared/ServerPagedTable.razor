@@ -1,0 +1,60 @@
+@typeparam TItem
+
+<MudTable T="TItem" @ref="_table" ServerData="ServerData" Hover="@Hover" Dense="@Dense" Breakpoint="Breakpoint.Sm" LoadingProgressColor="Color.Primary" Class="@TableClass">
+    <HeaderContent>
+        @HeaderContent
+    </HeaderContent>
+    <RowTemplate Context="item">
+        @RowTemplate(item)
+    </RowTemplate>
+    <NoRecordsContent>
+        @NoRecordsContent
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager RowsPerPageString="Filas por página" InfoFormat="{first_item}-{last_item} de {all_items}" />
+    </PagerContent>
+</MudTable>
+
+@code {
+    private MudTable<TItem>? _table;
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter]
+    public bool Hover { get; set; } = true;
+
+    [Parameter]
+    public bool Dense { get; set; } = true;
+
+    [Parameter]
+    public required Func<TableState, CancellationToken, Task<TableData<TItem>>> ServerData { get; set; }
+
+    [Parameter]
+    public required RenderFragment HeaderContent { get; set; }
+
+    [Parameter]
+    public required RenderFragment<TItem> RowTemplate { get; set; }
+
+    [Parameter]
+    public RenderFragment? NoRecordsContent { get; set; }
+
+    private string TableClass =>
+        string.IsNullOrWhiteSpace(Class)
+            ? "transportados-server-paged-table"
+            : $"transportados-server-paged-table {Class}";
+
+    public async Task ReloadServerDataAsync(bool resetPage = false)
+    {
+        if (_table != null)
+        {
+            if (resetPage && _table.CurrentPage != 0)
+            {
+                _table.NavigateTo(0);
+                return;
+            }
+
+            await _table.ReloadServerData();
+        }
+    }
+}

@@ -1,0 +1,101 @@
+@using System.Collections.Generic
+@using System.Linq
+
+<div class="nav-menu-shell">
+    <div class="nav-brand px-3">
+        <img src="/favicon-32x32.png" alt="Transportados" class="nav-brand-icon" />
+        <span class="nav-brand-title">Transportados</span>
+    </div>
+
+    <div class="nav-scrollable">
+        <nav class="nav flex-column">
+            <AuthorizeView Context="authState">
+                <Authorized>
+                    @{
+                        var visibleItems = TransportadosNavigationMatrix.GetVisibleItems(authState.User);
+                        var systemItems = visibleItems.Where(IsSystemItem).ToList();
+                        var mainItems = visibleItems.Where(item => !IsSystemItem(item)).ToList();
+                    }
+
+                    @foreach (var item in mainItems)
+                    {
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="@item.Href" Match="@item.Match" @onclick="NotifyNavigateAsync">
+                                <MudIcon Class="nav-link-icon" Icon="@item.Icon" Size="Size.Small" aria-hidden="true" />
+                                <span class="nav-link-text">@item.Text</span>
+                            </NavLink>
+                        </div>
+                    }
+
+                    @if (systemItems.Count > 0)
+                    {
+                        <div class="nav-item px-3 system-menu">
+                            <details>
+                                <summary class="nav-link system-menu-toggle">
+                                    <MudIcon Class="nav-link-icon" Icon="@Icons.Material.Filled.Build" Size="Size.Small" aria-hidden="true" />
+                                    <span class="nav-link-text">Sistema</span>
+                                </summary>
+                                @foreach (var item in systemItems)
+                                {
+                                    <div class="system-menu-item">
+                                        <NavLink class="nav-link system-sub-link" href="@item.Href" Match="@item.Match" @onclick="NotifyNavigateAsync">
+                                            <MudIcon Class="nav-link-icon" Icon="@item.Icon" Size="Size.Small" aria-hidden="true" />
+                                            <span class="nav-link-text">@item.Text</span>
+                                        </NavLink>
+                                    </div>
+                                }
+                            </details>
+                        </div>
+                    }
+                </Authorized>
+                <NotAuthorized>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="login">
+                            <MudIcon Class="nav-link-icon" Icon="@Icons.Material.Filled.Login" Size="Size.Small" aria-hidden="true" />
+                            <span class="nav-link-text">Login</span>
+                        </NavLink>
+                    </div>
+                </NotAuthorized>
+            </AuthorizeView>
+        </nav>
+    </div>
+
+    <AuthorizeView>
+        <Authorized>
+            <div class="sidebar-account px-3">
+                <NavLink class="sidebar-profile-link" href="profile" @onclick="NotifyNavigateAsync">
+                    <MudIcon Class="sidebar-profile-icon" Icon="@Icons.Material.Filled.AccountCircle" Size="Size.Small" aria-hidden="true" />
+                    <span class="sidebar-profile-text">@ProfileLabel</span>
+                </NavLink>
+                <MudButton Class="sidebar-logout-button"
+                           Variant="Variant.Text"
+                           Color="Color.Default"
+                           FullWidth="true"
+                           Href="logout"
+                           OnClick="NotifyNavigateAsync"
+                           title="Cerrar sesion"
+                           aria-label="Logout">
+                    <MudIcon Icon="@Icons.Material.Filled.Logout" aria-hidden="true" />
+                </MudButton>
+            </div>
+        </Authorized>
+    </AuthorizeView>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback OnNavigate { get; set; }
+
+    [Parameter]
+    public string ProfileLabel { get; set; } = "Perfil";
+
+    private static readonly HashSet<string> SystemMenuHrefs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "settings",
+        "users"
+    };
+
+    private static bool IsSystemItem(TransportadosNavigationItem item) => SystemMenuHrefs.Contains(item.Href);
+
+    private Task NotifyNavigateAsync() => OnNavigate.InvokeAsync();
+}

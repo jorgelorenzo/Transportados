@@ -1,0 +1,17 @@
+@inherits LayoutComponentBase
+
+<MudPopoverProvider />
+<MudDialogProvider FullWidth="true"
+                   MaxWidth="MaxWidth.Medium"
+                   CloseOnEscapeKey="true" />
+<MudSnackbarProvider />
+
+<main class="login-layout">
+    @Body
+</main>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">x</span>
+</div>

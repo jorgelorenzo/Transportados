@@ -1,0 +1,60 @@
+@page "/platform"
+@attribute [Authorize(Roles = TransportadosAccessMatrix.PlatformRolesCsv)]
+@inject ITransportadosApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>Plataforma - Transportados</PageTitle>
+
+<MudGrid Class="mb-4">
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="pa-4" Elevation="1">
+            <MudText Typo="Typo.caption">Tenants</MudText>
+            <MudText Typo="Typo.h5">@_stats.TotalTenants</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="pa-4" Elevation="1">
+            <MudText Typo="Typo.caption">Activos</MudText>
+            <MudText Typo="Typo.h5">@_stats.ActiveTenants</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="pa-4" Elevation="1">
+            <MudText Typo="Typo.caption">Usuarios</MudText>
+            <MudText Typo="Typo.h5">@_stats.TotalUsers</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="pa-4" Elevation="1">
+            <MudText Typo="Typo.caption">Clientes</MudText>
+            <MudText Typo="Typo.h5">@_stats.TotalCustomers</MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private PlatformStatsDto _stats = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _stats = await Api.GetAsync<PlatformStatsDto>("api/platform/stats") ?? new PlatformStatsDto();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+}

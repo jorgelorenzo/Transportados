@@ -1,0 +1,185 @@
+@page "/login"
+@inject AuthService AuthService
+@inject TransportadosNavigationService TransportadosNavigation
+@inject ISnackbar Snackbar
+@inject Transportados.Client.Services.Versioning.IApplicationVersionProvider ApplicationVersionProvider
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@using Transportados.Client.Services.Api
+
+<PageTitle>Transportados</PageTitle>
+
+<div class="transportados-login-shell">
+    <MudPaper Class="pa-6 transportados-login-card" Elevation="2">
+        <div class="transportados-login-brand">
+            <img src="/android-chrome-192x192.png" alt="Transportados" class="transportados-login-brand-icon" />
+            <MudText Typo="Typo.h5" Class="transportados-login-brand-title">Transportados</MudText>
+            <MudText Typo="Typo.caption" Align="Align.Center" Color="Color.Secondary" Class="transportados-login-version">
+                Version @ApplicationVersionProvider.DisplayVersion
+            </MudText>
+            @if (!string.IsNullOrWhiteSpace(ApiBaseUrlLabel))
+            {
+                <MudText Typo="Typo.caption" Align="Align.Center" Color="Color.Secondary" Class="transportados-login-api-url">
+                    @ApiBaseUrlLabel
+                </MudText>
+            }
+        </div>
+
+        <EditForm Model="_loginModel" OnValidSubmit="HandleLogin" FormName="otLoginForm">
+            <DataAnnotationsValidator />
+
+            <MudTextField @bind-Value="_loginModel.Username"
+                          Label="Usuario"
+                          Variant="Variant.Outlined"
+                          Immediate="true"
+                          Required="true"
+                          RequiredError="El usuario es requerido"
+                          Class="mb-3" />
+
+            <MudTextField @bind-Value="_loginModel.Password"
+                          Label="Clave"
+                          Variant="Variant.Outlined"
+                          InputType="InputType.Password"
+                          Immediate="true"
+                          Required="true"
+                          RequiredError="La clave es requerida"
+                          Class="mb-4" />
+
+            <div class="@(_canUseBiometricLogin ? "transportados-login-actions transportados-login-actions-with-biometrics" : "transportados-login-actions")">
+                <MudButton ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           Disabled="_isLoading || _isBiometricLoading"
+                           Class="transportados-login-submit-button"
+                           StartIcon="@(_isLoading ? Icons.Material.Filled.HourglassTop : Icons.Material.Filled.Login)"
+                           aria-label="@(_isLoading ? "Ingresando" : "Ingresar")"
+                           title="@(_isLoading ? "Ingresando" : "Ingresar")">
+                    @(_isLoading ? "Ingresando" : "Ingresar")
+                </MudButton>
+
+                @if (_canUseBiometricLogin)
+                {
+                    <MudIconButton ButtonType="ButtonType.Button"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Secondary"
+                                   Icon="@(_isBiometricLoading ? Icons.Material.Filled.HourglassTop : Icons.Material.Filled.Fingerprint)"
+                                   Disabled="_isLoading || _isBiometricLoading"
+                                   Class="transportados-login-biometric-button"
+                                   OnClick="HandleBiometricLogin"
+                                   aria-label="@(_isBiometricLoading ? "Validando biometria" : "Ingresar con biometria")"
+                                   title="@(_isBiometricLoading ? "Validando biometria" : "Ingresar con biometria")" />
+                }
+            </div>
+        </EditForm>
+
+        <div class="d-flex justify-center mt-4">
+            <MudLink Href="/password-recovery" Typo="Typo.body2" Color="Color.Secondary">Recuperar clave</MudLink>
+        </div>
+
+        <MudDivider Class="my-4" />
+
+        <MudButton Href="/register"
+                   Variant="Variant.Outlined"
+                   Color="Color.Secondary"
+                   FullWidth="true"
+                   StartIcon="@Icons.Material.Filled.Business">
+            Alta de empresa
+        </MudButton>
+    </MudPaper>
+</div>
+
+@code {
+    private readonly LoginModel _loginModel = new();
+    private bool _isLoading;
+    private bool _canUseBiometricLogin;
+    private bool _isBiometricLoading;
+
+    private string? ApiBaseUrlLabel => LoginApiEndpointDisplay.BuildLabel(
+        ShowApiBaseUrlOnLogin,
+        Configuration["ApiSettings:BaseUrl"] ?? string.Empty);
+
+    private bool ShowApiBaseUrlOnLogin =>
+        bool.TryParse(Configuration["ApiSettings:ShowApiBaseUrlOnLogin"], out var showApiBaseUrlOnLogin)
+        && showApiBaseUrlOnLogin;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        _canUseBiometricLogin = await AuthService.CanUseBiometricLoginAsync();
+
+        if (await AuthService.TryRestoreSessionAsync(notifyLogoutOnFailure: false))
+        {
+            await TransportadosNavigation.NavigateToPostLoginTargetAsync();
+            return;
+        }
+
+#if USE_FAKE_BIOMETRICS_AUTO_LOGIN
+        if (_canUseBiometricLogin)
+        {
+            await HandleBiometricLogin();
+            return;
+        }
+
+        _loginModel.Username = "fake-biometrics@transportados.local";
+        _loginModel.Password = "fake-password";
+        await HandleLogin();
+        return;
+#else
+        StateHasChanged();
+#endif
+    }
+
+    private async Task HandleLogin()
+    {
+        _isLoading = true;
+        try
+        {
+            var (success, errorMessage) = await AuthService.LoginAsync(
+                _loginModel.Username,
+                _loginModel.Password);
+            if (!success)
+            {
+                Snackbar.Add(errorMessage ?? "No se pudo iniciar sesion.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add("Bienvenido.", Severity.Success);
+            await TransportadosNavigation.NavigateToPostLoginTargetAsync();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task HandleBiometricLogin()
+    {
+        _isBiometricLoading = true;
+        try
+        {
+            var (success, errorMessage) = await AuthService.LoginWithStoredBiometricSessionAsync();
+            if (!success)
+            {
+                Snackbar.Add(errorMessage ?? "No se pudo iniciar sesion con biometria.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add("Bienvenido.", Severity.Success);
+            await TransportadosNavigation.NavigateToPostLoginTargetAsync();
+        }
+        finally
+        {
+            _isBiometricLoading = false;
+        }
+    }
+
+    private sealed class LoginModel
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}

@@ -1,0 +1,38 @@
+.customer-select-with-create {
+    align-items: center;
+}
+
+.customer-select-with-create__select {
+    flex: 1 1 auto;
+}
+
+.customer-select-with-create__add {
+    align-self: center;
+    width: 56px;
+    height: 56px;
+    min-width: 56px;
+}
+
+.customer-create-overlay {
+    z-index: 1400;
+}
+
+.customer-create-overlay__sheet {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    overflow-y: auto;
+}
+
+@media (max-width: 960px) {
+    .customer-create-overlay {
+        padding: 0 12px;
+    }
+
+    .customer-create-overlay__sheet {
+        width: calc(100vw - 24px);
+        height: auto;
+        max-height: 100vh;
+        border-radius: 12px;
+    }
+}

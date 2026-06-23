@@ -1,0 +1,28 @@
+@using System.Net.Http
+@using System.Net.Http.Json
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components.Sections
+@using Microsoft.AspNetCore.Components.Web
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+@using Microsoft.JSInterop
+@* Keep MudBlazor globally imported so layout/pages share a single component baseline. *@
+@using MudBlazor
+@using Transportados.Contracts.Api.Dto
+@using Transportados.Domain.Api.Domain
+@using Transportados.Client
+@using Transportados.Client.Components
+@using Transportados.Client.Components.Layout
+@using Transportados.Client.Components.Shared
+@using Transportados.Client.Localization
+@using Transportados.Client.Models.Auth
+@using Transportados.Client.Navigation
+@using Transportados.Client.Services.Api
+@using Transportados.Client.Services.Auth
+@using Transportados.Client.Styling
+@using Transportados.Platform.UI.Components.Context
+@using Transportados.Platform.UI.Models

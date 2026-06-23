@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="456" height="456" viewBox="0 0 512 512" preserveAspectRatio="xMidYMid meet">
+  <title>Transportados logistics icon foreground</title>
+  <g fill="none" stroke="#00CE6B" stroke-width="30" stroke-linecap="square" stroke-linejoin="miter">
+    <path d="M60 150H300V350H60V150Z"/>
+    <path d="M300 205H352C426 205 480 270 480 350V384"/>
+    <path d="M300 245H356C405 245 444 288 450 350"/>
+    <path d="M335 285H405"/>
+    <path d="M300 350H346"/>
+    <path d="M438 350H465C486 350 502 368 502 390C502 412 486 430 465 430H405"/>
+    <path d="M60 350H94"/>
+    <path d="M192 350H340"/>
+  </g>
+  <g fill="none" stroke="#00CE6B" stroke-width="28" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="143" cy="388" r="56"/>
+    <circle cx="143" cy="388" r="25"/>
+    <circle cx="390" cy="388" r="56"/>
+    <circle cx="390" cy="388" r="25"/>
+  </g>
+</svg>

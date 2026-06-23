@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Transportados.Platform.EntityFramework</RootNamespace>
+    <AssemblyName>Transportados.Platform.EntityFramework</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Transportados.Platform.Core\Transportados.Platform.Core.csproj" />
+  </ItemGroup>
+</Project>

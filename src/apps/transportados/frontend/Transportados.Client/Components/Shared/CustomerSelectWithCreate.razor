@@ -1,0 +1,226 @@
+@inject ITransportadosApiClient Api
+@inject ISnackbar Snackbar
+
+<MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="customer-select-with-create">
+    <MudAutocomplete T="Guid?"
+                     Value="Value"
+                     ValueChanged="OnValueChanged"
+                     Label="@Label"
+                     Variant="@Variant"
+                     Required="@Required"
+                     Disabled="@Disabled"
+                     SearchFunc="SearchCustomerIdsAsync"
+                     ToStringFunc="CustomerIdToText"
+                     CoerceText="false"
+                     Clearable="@ShowEmptyOption"
+                     ResetValueOnEmptyText="true"
+                     Placeholder="@EmptyOptionText"
+                     AdornmentIcon="@Icons.Material.Filled.Search"
+                     Class="flex-grow-1 customer-select-with-create__select" />
+
+    <MudTooltip Text="Nuevo cliente">
+        <MudIconButton Icon="@Icons.Material.Filled.Add"
+                       Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       Class="customer-select-with-create__add"
+                       Disabled="@(Disabled || !AllowCreate)"
+                       OnClick="ToggleCreatePanel"
+                       aria-label="Agregar cliente" />
+    </MudTooltip>
+</MudStack>
+
+<MudOverlay Visible="_isCreateOpen" DarkBackground="true" LockScroll="true" Class="customer-create-overlay">
+    <MudPaper Class="customer-create-overlay__sheet pa-6" Elevation="0" Outlined="true">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudText Typo="Typo.h5">Nuevo cliente</MudText>
+            <MudSpacer />
+            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                           Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           Disabled="_isCreatingCustomer"
+                           OnClick="CancelCreatePanel"
+                           aria-label="Cerrar alta de cliente" />
+        </MudStack>
+
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="_draftCustomer.FullName"
+                              Label="Nombre"
+                              Variant="Variant.Outlined"
+                              Required="true" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="_draftCustomer.Email"
+                              Label="Email"
+                              Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="_draftCustomer.Phone"
+                              Label="Telefono"
+                              Variant="Variant.Outlined" />
+            </MudItem>
+        </MudGrid>
+
+        <MudStack Row="true" Spacing="1" Class="mt-4">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       Disabled="_isCreatingCustomer"
+                       OnClick="CreateCustomerAsync">
+                Guardar cliente
+            </MudButton>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Default"
+                       Disabled="_isCreatingCustomer"
+                       OnClick="CancelCreatePanel">
+                Cancelar
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+</MudOverlay>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<CustomerDto> Customers { get; set; } = [];
+
+    [Parameter]
+    public Guid? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid?> ValueChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<CustomerDto> OnCustomerCreated { get; set; }
+
+    [Parameter]
+    public string Label { get; set; } = "Cliente";
+
+    [Parameter]
+    public string EmptyOptionText { get; set; } = "Seleccionar cliente";
+
+    [Parameter]
+    public bool ShowEmptyOption { get; set; } = true;
+
+    [Parameter]
+    public bool Required { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public bool AllowCreate { get; set; }
+
+    [Parameter]
+    public Variant Variant { get; set; } = Variant.Outlined;
+
+    private bool _isCreateOpen;
+    private bool _isCreatingCustomer;
+    private CustomerDto _draftCustomer = new();
+
+    private Task OnValueChanged(Guid? customerId) => ValueChanged.InvokeAsync(customerId);
+
+    private void ToggleCreatePanel()
+    {
+        if (_isCreateOpen)
+        {
+            CancelCreatePanel();
+            return;
+        }
+
+        _isCreateOpen = true;
+        _draftCustomer = new CustomerDto();
+    }
+
+    private void CancelCreatePanel()
+    {
+        _isCreateOpen = false;
+        _draftCustomer = new CustomerDto();
+    }
+
+    private async Task CreateCustomerAsync()
+    {
+        if (_isCreatingCustomer)
+        {
+            return;
+        }
+
+        var fullName = _draftCustomer.FullName?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            Snackbar.Add("El nombre del cliente es obligatorio.", Severity.Warning);
+            return;
+        }
+
+        _isCreatingCustomer = true;
+        try
+        {
+            var created = await Api.PostAsync<CustomerDto, CustomerDto>(
+                "api/customers",
+                new CustomerDto
+                {
+                    FullName = fullName,
+                    Email = string.IsNullOrWhiteSpace(_draftCustomer.Email) ? null : _draftCustomer.Email.Trim(),
+                    Phone = string.IsNullOrWhiteSpace(_draftCustomer.Phone) ? null : _draftCustomer.Phone.Trim()
+                });
+
+            if (created == null || created.Id == Guid.Empty)
+            {
+                throw new InvalidOperationException("No se pudo crear el cliente.");
+            }
+
+            if (OnCustomerCreated.HasDelegate)
+            {
+                await OnCustomerCreated.InvokeAsync(created);
+            }
+
+            await ValueChanged.InvokeAsync(created.Id);
+            Snackbar.Add("Cliente creado.", Severity.Success);
+            CancelCreatePanel();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _isCreatingCustomer = false;
+        }
+    }
+
+    private static string FormatCustomerLabel(CustomerDto customer)
+    {
+        var fullName = customer.FullName?.Trim() ?? string.Empty;
+        var email = customer.Email?.Trim();
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return fullName;
+        }
+
+        return $"{fullName} - {email}";
+    }
+
+    private Task<IEnumerable<Guid?>> SearchCustomerIdsAsync(string? value, CancellationToken cancellationToken)
+    {
+        IEnumerable<Guid?> matches = Customers
+            .Where(customer =>
+                string.IsNullOrWhiteSpace(value) ||
+                (customer.FullName?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (customer.Email?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (customer.Phone?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false))
+            .OrderBy(customer => customer.FullName, StringComparer.OrdinalIgnoreCase)
+            .Select(customer => (Guid?)customer.Id);
+
+        return Task.FromResult(matches);
+    }
+
+    private string CustomerIdToText(Guid? customerId)
+    {
+        if (!customerId.HasValue || customerId.Value == Guid.Empty)
+        {
+            return string.Empty;
+        }
+
+        var customer = Customers.FirstOrDefault(item => item.Id == customerId.Value);
+        return customer == null ? string.Empty : FormatCustomerLabel(customer);
+    }
+}

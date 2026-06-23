@@ -1,0 +1,32 @@
+@page "/"
+@attribute [Authorize(Roles = TransportadosAccessMatrix.HomeRolesCsv)]
+@inject TransportadosNavigationService TransportadosNavigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Inicio - Transportados</PageTitle>
+
+<div class="d-flex justify-center align-center" style="min-height: 220px;">
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+</div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!await TransportadosNavigation.TryNavigateToInitialTargetAsync(replace: true))
+            {
+                Snackbar.Add("No se pudo resolver una pantalla inicial disponible.", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+}

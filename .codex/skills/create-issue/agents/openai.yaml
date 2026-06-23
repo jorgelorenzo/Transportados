@@ -1,0 +1,4 @@
+interface:
+  display_name: "Transportados Create Issue"
+  short_description: "Canonical local issue creation command for Transportados"
+  default_prompt: "Use $create-issue to draft a local Markdown issue in docs/issues for Transportados, show it for approval, and create it only after confirmation unless creation was explicitly requested."

@@ -1,0 +1,152 @@
+@page "/profile"
+@attribute [Authorize]
+@inject AuthService AuthService
+@inject ISnackbar Snackbar
+@using Transportados.Client.Services.Biometrics
+
+<PageTitle>Perfil - Transportados</PageTitle>
+
+@if (_context == null)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
+}
+else
+{
+    <MudPaper Class="pa-4" Elevation="1">
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.caption">Nombre</MudText>
+                <MudText Typo="Typo.body1">@_context.FullName</MudText>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.caption">Email</MudText>
+                <MudText Typo="Typo.body1">@_context.Email</MudText>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.caption">Rol activo</MudText>
+                <MudText Typo="Typo.body1">@TransportadosDisplayLabels.Role(_context.ActiveRole, _context.TechRoleLabel)</MudText>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudText Typo="Typo.caption">Contexto</MudText>
+                <MudText Typo="Typo.body1">@SelectedTenantLabel</MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mt-4" Elevation="1">
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.h6">Seguridad</MudText>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="flex-wrap gap-3">
+                <div>
+                    <MudText Typo="Typo.body1">Acceso biometrico</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@BiometricStatusLabel</MudText>
+                </div>
+
+                @if (_isBiometricEnabled)
+                {
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               Disabled="_isBiometricLoading"
+                               StartIcon="@Icons.Material.Filled.Block"
+                               OnClick="DisableBiometricAccess">
+                        Deshabilitar
+                    </MudButton>
+                }
+                else
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Secondary"
+                               Disabled="_isBiometricLoading || !_isBiometricAvailable"
+                               StartIcon="@(_isBiometricLoading ? Icons.Material.Filled.HourglassTop : Icons.Material.Filled.Fingerprint)"
+                               OnClick="EnableBiometricAccess">
+                        Habilitar
+                    </MudButton>
+                }
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    private AuthenticatedContext? _context;
+    private bool _isBiometricEnabled;
+    private bool _isBiometricAvailable;
+    private bool _isBiometricLoading;
+
+    private string SelectedTenantLabel =>
+        _context?.TenantMemberships
+            .Where(m => m.TenantId == _context.ActiveTenantId && m.Role == _context.ActiveRole)
+            .Select(m => m.TenantName)
+            .FirstOrDefault()
+        ?? (_context?.IsSuperAdmin == true ? "Plataforma" : "-");
+
+    private string BiometricStatusLabel
+    {
+        get
+        {
+            if (_isBiometricEnabled)
+            {
+                return "Activado para este dispositivo.";
+            }
+
+            return _isBiometricAvailable
+                ? "Desactivado. Habilitalo para usar ingreso biometrico en proximos ingresos."
+                : "No disponible en este dispositivo.";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _context = await AuthService.GetStoredContextAsync();
+            await LoadBiometricStateAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task EnableBiometricAccess()
+    {
+        _isBiometricLoading = true;
+        try
+        {
+            var (success, errorMessage) = await AuthService.EnableBiometricAuthenticationAsync();
+            if (!success)
+            {
+                Snackbar.Add(errorMessage ?? "No se pudo activar la biometria.", Severity.Error);
+                return;
+            }
+
+            await LoadBiometricStateAsync();
+            Snackbar.Add("Biometria activada.", Severity.Success);
+        }
+        finally
+        {
+            _isBiometricLoading = false;
+        }
+    }
+
+    private async Task DisableBiometricAccess()
+    {
+        _isBiometricLoading = true;
+        try
+        {
+            await AuthService.DisableBiometricAuthenticationAsync();
+            await LoadBiometricStateAsync();
+            Snackbar.Add("Biometria desactivada.", Severity.Success);
+        }
+        finally
+        {
+            _isBiometricLoading = false;
+        }
+    }
+
+    private async Task LoadBiometricStateAsync()
+    {
+        _isBiometricEnabled = await AuthService.IsBiometricAuthenticationEnabledAsync();
+        _isBiometricAvailable = await AuthService.GetBiometricAvailabilityAsync() == BiometricAvailability.Available;
+    }
+}

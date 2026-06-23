@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI Flow Preview"
+  short_description: "Validate UI flows before implementation"
+  default_prompt: "Use $ui-flow-preview to validate this UI flow before writing the implementation plan."

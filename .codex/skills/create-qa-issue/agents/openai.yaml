@@ -1,0 +1,4 @@
+interface:
+  display_name: "Transportados Create QA Issue"
+  short_description: "Canonical local QA child issue creation command for Transportados"
+  default_prompt: "Use $create-qa-issue to draft a local QA child issue in docs/issues for Transportados, show it for approval, and create it only after confirmation unless creation was explicitly requested."

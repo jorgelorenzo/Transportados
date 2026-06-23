@@ -1,0 +1,18 @@
+@page "/logout"
+@inject AuthService AuthService
+
+<PageTitle>Cerrar sesion - Transportados</PageTitle>
+
+<MudText Typo="Typo.body1">Cerrando sesion...</MudText>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await AuthService.LogoutAsync();
+    }
+}

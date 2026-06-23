@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="bunit.web" Version="1.28.9" />
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="DotNet.Testcontainers" Version="1.6.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.52.0" />
+    <PackageReference Include="MudBlazor" Version="8.2.0" />
+    <PackageReference Include="Testcontainers.MsSql" Version="4.3.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\apps\transportados\backend\Transportados.Api\Transportados.Api.csproj" />
+    <ProjectReference Include="..\..\..\src\apps\transportados\backend\Transportados.Contracts\Transportados.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\src\apps\transportados\backend\Transportados.Domain\Transportados.Domain.csproj" />
+    <ProjectReference Include="..\..\..\src\apps\transportados\backend\Transportados.Persistence\Transportados.Persistence.csproj" />
+    <ProjectReference Include="..\..\..\src\apps\transportados\frontend\Transportados.Client\Transportados.Client.csproj" />
+    <ProjectReference Include="..\..\..\src\apps\transportados\frontend\Transportados.Web\Transportados.Web.csproj" />
+    <ProjectReference Include="..\..\..\src\apps\transportados\shared\Transportados.Platform.Core\Transportados.Platform.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\apps\transportados\shared\Transportados.Platform.UI\Transportados.Platform.UI.csproj" />
+  </ItemGroup>
+
+</Project>

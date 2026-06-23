@@ -1,0 +1,199 @@
+<div class="mobile-sort-action">
+    <MudTooltip Text="@SortToggleText">
+        <MudBadge Dot="true"
+                  Bordered="true"
+                  Overlap="true"
+                  Origin="Origin.BottomRight"
+                  Color="Color.Error"
+                  Visible="@HasAppliedSort"
+                  BadgeAriaLabel="Ordenamiento aplicado">
+            <MudIconButton Icon="@Icons.Material.Filled.SwapVert"
+                           Variant="@ToggleButtonVariant(_sortPanelOpen)"
+                           Color="Color.Primary"
+                           OnClick="ToggleSortPanelAsync"
+                           aria-label="@SortToggleText"
+                           title="@SortToggleText" />
+        </MudBadge>
+    </MudTooltip>
+</div>
+<MudOverlay Visible="@_sortPanelOpen"
+            AutoClose="true"
+            OnClosed="Close"
+            DarkBackground="true"
+            ZIndex="1500"
+            Class="d-flex align-center justify-center pa-4">
+    <MudPaper Class="pa-4"
+              Elevation="8"
+              Style="width: min(420px, calc(100vw - 32px));"
+              @onclick:stopPropagation="true">
+        <MudStack Spacing="3">
+            <MudSelect T="string"
+                       Value="_draftSortBy"
+                       ValueChanged="OnSortFieldChanged"
+                       Label="Ordenar por"
+                       Variant="Variant.Outlined"
+                       Dense="true"
+                       aria-label="@SortFieldAriaLabel">
+                <MudSelectItem T="string" Value="@NoSortValue">Sin ordenar</MudSelectItem>
+                @foreach (var option in Options)
+                {
+                    <MudSelectItem T="string" Value="@option.Value">@option.Label</MudSelectItem>
+                }
+            </MudSelect>
+            <MudStack Row="true"
+                      Spacing="1"
+                      AlignItems="AlignItems.Center"
+                      Class="mobile-sort-direction">
+                <MudButton Variant="@DraftSortDirectionVariant(descending: false)"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.ArrowUpward"
+                           Disabled="@(!HasDraftSort)"
+                           OnClick="@(() => SetSortDirection(descending: false))"
+                           aria-label="Ordenar ascendente">
+                    Ascendente
+                </MudButton>
+                <MudButton Variant="@DraftSortDirectionVariant(descending: true)"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.ArrowDownward"
+                           Disabled="@(!HasDraftSort)"
+                           OnClick="@(() => SetSortDirection(descending: true))"
+                           aria-label="Ordenar descendente">
+                    Descendente
+                </MudButton>
+            </MudStack>
+            <MudStack Row="true"
+                      Spacing="2"
+                      AlignItems="AlignItems.Center"
+                      Justify="Justify.Center"
+                      Class="flex-wrap">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.SwapVert"
+                           OnClick="ApplySortAsync"
+                           aria-label="Aplicar ordenamiento">
+                    Aplicar
+                </MudButton>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.Clear"
+                           Disabled="@(!HasSortToClear)"
+                           OnClick="ClearSortAsync"
+                           aria-label="Limpiar ordenamiento">
+                    Limpiar
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+</MudOverlay>
+
+@code {
+    private const string NoSortValue = "__none";
+    private bool _sortPanelOpen;
+    private string _draftSortBy = NoSortValue;
+    private bool _draftSortDescending;
+
+    [Parameter]
+    public required IReadOnlyList<MobileSortOption> Options { get; set; }
+
+    [Parameter]
+    public string? SortBy { get; set; }
+
+    [Parameter]
+    public bool SortDescending { get; set; }
+
+    [Parameter]
+    public string SortFieldAriaLabel { get; set; } = "Ordenar lista por";
+
+    [Parameter]
+    public EventCallback<MobileSortChangedEventArgs> OnApply { get; set; }
+
+    [Parameter]
+    public EventCallback OnClear { get; set; }
+
+    [Parameter]
+    public EventCallback OnOpened { get; set; }
+
+    private bool HasAppliedSort => IsSortFieldSelected(SortBy);
+
+    private bool HasDraftSort => IsSortFieldSelected(_draftSortBy);
+
+    private bool HasSortToClear => HasDraftSort || HasAppliedSort;
+
+    private string SortToggleText =>
+        _sortPanelOpen ? "Ocultar ordenamiento" : HasAppliedSort ? "Mostrar ordenamiento aplicado" : "Mostrar ordenamiento";
+
+    public void Close()
+    {
+        _sortPanelOpen = false;
+        StateHasChanged();
+    }
+
+    private async Task ToggleSortPanelAsync()
+    {
+        _sortPanelOpen = !_sortPanelOpen;
+        if (_sortPanelOpen)
+        {
+            ResetDraftFromAppliedSort();
+            await OnOpened.InvokeAsync();
+        }
+    }
+
+    private async Task ApplySortAsync()
+    {
+        _sortPanelOpen = false;
+        if (HasDraftSort)
+        {
+            await OnApply.InvokeAsync(new MobileSortChangedEventArgs(_draftSortBy, _draftSortDescending));
+            return;
+        }
+
+        await OnClear.InvokeAsync();
+    }
+
+    private async Task ClearSortAsync()
+    {
+        if (!HasSortToClear)
+        {
+            return;
+        }
+
+        _draftSortBy = NoSortValue;
+        _draftSortDescending = false;
+        _sortPanelOpen = false;
+        await OnClear.InvokeAsync();
+    }
+
+    private Task OnSortFieldChanged(string sortBy)
+    {
+        _draftSortBy = IsSortFieldSelected(sortBy) ? sortBy : NoSortValue;
+        if (!HasDraftSort)
+        {
+            _draftSortDescending = false;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void SetSortDirection(bool descending)
+    {
+        if (HasDraftSort)
+        {
+            _draftSortDescending = descending;
+        }
+    }
+
+    private void ResetDraftFromAppliedSort()
+    {
+        _draftSortBy = HasAppliedSort ? SortBy! : NoSortValue;
+        _draftSortDescending = HasAppliedSort && SortDescending;
+    }
+
+    private static Variant ToggleButtonVariant(bool isPanelOpen) =>
+        isPanelOpen ? Variant.Filled : Variant.Outlined;
+
+    private Variant DraftSortDirectionVariant(bool descending) =>
+        HasDraftSort && _draftSortDescending == descending ? Variant.Filled : Variant.Outlined;
+
+    private static bool IsSortFieldSelected(string? sortBy) =>
+        !string.IsNullOrWhiteSpace(sortBy) && !string.Equals(sortBy, NoSortValue, StringComparison.Ordinal);
+}

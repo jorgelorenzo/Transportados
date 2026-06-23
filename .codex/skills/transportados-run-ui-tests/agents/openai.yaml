@@ -1,0 +1,4 @@
+interface:
+  display_name: "Transportados Run UI Tests"
+  short_description: "Run Transportados Playwright E2E tests"
+  default_prompt: "Use $transportados-run-ui-tests to run all Transportados browser/UI end-to-end tests, optionally with a visible browser or one specific test-name filter."

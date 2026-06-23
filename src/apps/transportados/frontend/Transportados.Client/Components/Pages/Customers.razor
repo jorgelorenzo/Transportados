@@ -1,0 +1,444 @@
+@page "/customers"
+@attribute [Authorize(Roles = TransportadosAccessMatrix.TenantManagerRolesCsv)]
+@inject ITransportadosApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>Clientes - Transportados</PageTitle>
+
+<MainHeaderActions>
+    <MudTooltip Text="Nuevo cliente">
+        <MudIconButton Icon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary" Href="customers/new" aria-label="Nuevo cliente" />
+    </MudTooltip>
+    <MudTooltip Text="@SearchToggleText">
+        <MudBadge Dot="true"
+                  Bordered="true"
+                  Overlap="true"
+                  Origin="Origin.BottomRight"
+                  Color="Color.Error"
+                  Visible="@HasActiveSearch"
+                  BadgeAriaLabel="Busqueda aplicada">
+            <MudIconButton Icon="@Icons.Material.Filled.Search"
+                           Variant="@ToggleButtonVariant(_searchPanelOpen)"
+                           Color="Color.Primary"
+                           OnClick="ToggleSearchPanel"
+                           aria-label="@SearchToggleText" />
+        </MudBadge>
+    </MudTooltip>
+    <MudOverlay Visible="@_searchPanelOpen"
+                AutoClose="true"
+                OnClosed="CloseSearchPopup"
+                DarkBackground="true"
+                ZIndex="1500"
+                Class="d-flex align-center justify-center pa-4">
+        <MudPaper Class="pa-4"
+                  Elevation="8"
+                  Style="width: min(420px, calc(100vw - 32px));"
+                  @onclick:stopPropagation="true">
+            <MudStack Spacing="3">
+                <MudTextField @bind-Value="_searchText"
+                              Label="Buscar"
+                              Placeholder="Nombre, codigo, email o telefono"
+                              Variant="Variant.Outlined"
+                              Immediate="true"
+                              Clearable="true"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              OnKeyDown="OnSearchKeyDown"
+                              aria-label="Buscar cliente" />
+                <MudStack Row="true"
+                          Spacing="2"
+                          AlignItems="AlignItems.Center"
+                          Justify="Justify.Center"
+                          Class="flex-wrap">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Search"
+                               OnClick="ApplySearchAsync"
+                               aria-label="Aplicar busqueda">
+                        Aplicar
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               StartIcon="@Icons.Material.Filled.Clear"
+                               Disabled="@(!HasSearchToClear)"
+                               OnClick="ClearSearchAsync"
+                               aria-label="Limpiar busqueda">
+                        Limpiar
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+    </MudOverlay>
+    <MobileSortMenu @ref="_sortMenu"
+                    Options="CustomerSortOptions"
+                    SortBy="@_mobileSortBy"
+                    SortDescending="@_mobileSortDescending"
+                    SortFieldAriaLabel="Ordenar clientes por"
+                    OnApply="ApplyMobileSortAsync"
+                    OnClear="ClearMobileSortAsync"
+                    OnOpened="CloseSearchAndFilters" />
+    <MudTooltip Text="@FiltersToggleText">
+        <MudBadge Dot="true"
+                  Bordered="true"
+                  Overlap="true"
+                  Origin="Origin.BottomRight"
+                  Color="Color.Error"
+                  Visible="@HasActiveAdvancedFilters"
+                  BadgeAriaLabel="Filtros aplicados">
+            <MudIconButton Icon="@Icons.Material.Filled.FilterAlt"
+                           Variant="@ToggleButtonVariant(_filtersPanelOpen)"
+                           Color="Color.Primary"
+                           OnClick="ToggleFiltersPanel"
+                           aria-label="@FiltersToggleText" />
+        </MudBadge>
+    </MudTooltip>
+    <MudOverlay Visible="@_filtersPanelOpen"
+                AutoClose="true"
+                OnClosed="CloseFiltersPopup"
+                DarkBackground="true"
+                ZIndex="1500"
+                Class="d-flex align-center justify-center pa-4">
+        <MudPaper Class="pa-4"
+                  Elevation="8"
+                  Style="width: min(520px, calc(100vw - 32px));"
+                  @onclick:stopPropagation="true">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_cityFilter"
+                                  Label="Localidad"
+                                  Variant="Variant.Outlined"
+                                  Immediate="true"
+                                  Clearable="true"
+                                  AdornmentIcon="@Icons.Material.Filled.LocationCity"
+                                  aria-label="Filtrar por localidad" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_stateFilter"
+                                  Label="Provincia/Zona"
+                                  Variant="Variant.Outlined"
+                                  Immediate="true"
+                                  Clearable="true"
+                                  AdornmentIcon="@Icons.Material.Filled.Map"
+                                  aria-label="Filtrar por provincia o zona" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudStack Row="true"
+                              Spacing="2"
+                              AlignItems="AlignItems.Center"
+                              Justify="Justify.Center"
+                              Class="flex-wrap">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.FilterAlt"
+                                   OnClick="ApplyAdvancedFiltersAsync"
+                                   aria-label="Aplicar filtros">
+                            Aplicar
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Default"
+                                   StartIcon="@Icons.Material.Filled.Clear"
+                                   Disabled="@(!HasAdvancedFiltersToClear)"
+                                   OnClick="ClearAdvancedFiltersAsync"
+                                   aria-label="Limpiar filtros">
+                            Limpiar
+                        </MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    </MudOverlay>
+</MainHeaderActions>
+
+<ServerPagedTable TItem="CustomerDto" @ref="_customersTable" ServerData="LoadCustomersPageAsync">
+    <HeaderContent>
+        <MudTh>
+            <MudTableSortLabel T="CustomerDto" SortLabel="@CustomerSortFields.FullName">Nombre</MudTableSortLabel>
+        </MudTh>
+        <MudTh>
+            <MudTableSortLabel T="CustomerDto" SortLabel="@CustomerSortFields.Code">Codigo</MudTableSortLabel>
+        </MudTh>
+        <MudTh>
+            <MudTableSortLabel T="CustomerDto" SortLabel="@CustomerSortFields.Email">Email</MudTableSortLabel>
+        </MudTh>
+        <MudTh>
+            <MudTableSortLabel T="CustomerDto" SortLabel="@CustomerSortFields.Phone">Telefono</MudTableSortLabel>
+        </MudTh>
+        <MudTh>
+            <MudTableSortLabel T="CustomerDto" SortLabel="@CustomerSortFields.City">Localidad</MudTableSortLabel>
+        </MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Nombre">@context.FullName</MudTd>
+        <MudTd DataLabel="Codigo">@context.Code</MudTd>
+        <MudTd DataLabel="Email" Class="customer-email-cell">
+            <span class="customer-email-wrap">@context.Email</span>
+        </MudTd>
+        <MudTd DataLabel="Telefono">@context.Phone</MudTd>
+        <MudTd DataLabel="Localidad" Class="customer-location-cell">@FormatLocation(context)</MudTd>
+        <MudTd>
+            <MudTooltip Text="Editar">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary" Href="@GetEditHref(context.Id)" aria-label="Editar cliente" />
+            </MudTooltip>
+        </MudTd>
+    </RowTemplate>
+</ServerPagedTable>
+
+@code {
+    private ServerPagedTable<CustomerDto>? _customersTable;
+    private MobileSortMenu? _sortMenu;
+    private static readonly IReadOnlyList<MobileSortOption> CustomerSortOptions =
+    [
+        new(CustomerSortFields.FullName, "Nombre"),
+        new(CustomerSortFields.Code, "Codigo"),
+        new(CustomerSortFields.Email, "Email"),
+        new(CustomerSortFields.Phone, "Telefono"),
+        new(CustomerSortFields.City, "Localidad")
+    ];
+    private string? _mobileSortBy;
+    private bool _mobileSortDescending;
+    private string? _searchText;
+    private string? _cityFilter;
+    private string? _stateFilter;
+    private string? _appliedSearchText;
+    private string? _appliedCityFilter;
+    private string? _appliedStateFilter;
+    private bool _searchPanelOpen;
+    private bool _filtersPanelOpen;
+
+    private bool HasSearchDraft => !string.IsNullOrWhiteSpace(_searchText);
+
+    private bool HasActiveSearch => !string.IsNullOrWhiteSpace(_appliedSearchText);
+
+    private bool HasMobileSort => !string.IsNullOrWhiteSpace(_mobileSortBy);
+
+    private bool HasSearchToClear => HasSearchDraft || HasActiveSearch;
+
+    private bool HasAdvancedFiltersDraft =>
+        !string.IsNullOrWhiteSpace(_cityFilter) ||
+        !string.IsNullOrWhiteSpace(_stateFilter);
+
+    private bool HasActiveAdvancedFilters =>
+        !string.IsNullOrWhiteSpace(_appliedCityFilter) ||
+        !string.IsNullOrWhiteSpace(_appliedStateFilter);
+
+    private bool HasAdvancedFiltersToClear => HasAdvancedFiltersDraft || HasActiveAdvancedFilters;
+
+    private string SearchToggleText =>
+        _searchPanelOpen ? "Ocultar busqueda" : HasActiveSearch ? "Mostrar busqueda aplicada" : "Mostrar busqueda";
+
+    private string FiltersToggleText =>
+        _filtersPanelOpen ? "Ocultar filtros" : HasActiveAdvancedFilters ? "Mostrar filtros aplicados" : "Mostrar filtros";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (_customersTable != null)
+        {
+            await _customersTable.ReloadServerDataAsync();
+        }
+    }
+
+    private async Task<TableData<CustomerDto>> LoadCustomersPageAsync(TableState state, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var skip = state.Page * state.PageSize;
+            var take = state.PageSize <= 0 ? 20 : state.PageSize;
+            var response = await Api.GetAsync<CustomerListResponseDto>(BuildCustomersPath(state, skip, take));
+            return new TableData<CustomerDto>
+            {
+                Items = response?.Customers ?? [],
+                TotalItems = response?.Total ?? 0
+            };
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+            return new TableData<CustomerDto>
+            {
+                Items = [],
+                TotalItems = 0
+            };
+        }
+    }
+
+    private async Task ApplySearchAsync()
+    {
+        _appliedSearchText = NormalizeText(_searchText);
+        _searchText = _appliedSearchText;
+        _searchPanelOpen = false;
+        await ReloadAppliedCriteriaAsync();
+    }
+
+    private async Task ApplyAdvancedFiltersAsync()
+    {
+        ApplyCurrentAdvancedFilters();
+        _filtersPanelOpen = false;
+        await ReloadAppliedCriteriaAsync();
+    }
+
+    private async Task ClearSearchAsync()
+    {
+        if (!HasSearchToClear)
+        {
+            return;
+        }
+
+        _searchText = null;
+        _appliedSearchText = null;
+        _searchPanelOpen = false;
+        await ReloadAppliedCriteriaAsync();
+    }
+
+    private async Task ClearAdvancedFiltersAsync()
+    {
+        if (!HasAdvancedFiltersToClear)
+        {
+            return;
+        }
+
+        _cityFilter = null;
+        _stateFilter = null;
+        _appliedCityFilter = null;
+        _appliedStateFilter = null;
+        _filtersPanelOpen = false;
+        await ReloadAppliedCriteriaAsync();
+    }
+
+    private async Task ApplyMobileSortAsync(MobileSortChangedEventArgs args)
+    {
+        _mobileSortBy = args.SortBy;
+        _mobileSortDescending = args.SortDescending;
+        await ReloadAppliedCriteriaAsync();
+    }
+
+    private async Task ClearMobileSortAsync()
+    {
+        _mobileSortBy = null;
+        _mobileSortDescending = false;
+        await ReloadAppliedCriteriaAsync();
+    }
+
+    private async Task ReloadAppliedCriteriaAsync()
+    {
+        if (_customersTable != null)
+        {
+            await _customersTable.ReloadServerDataAsync(resetPage: true);
+        }
+    }
+
+    private void ApplyCurrentAdvancedFilters()
+    {
+        _appliedCityFilter = NormalizeText(_cityFilter);
+        _cityFilter = _appliedCityFilter;
+        _appliedStateFilter = NormalizeText(_stateFilter);
+        _stateFilter = _appliedStateFilter;
+    }
+
+    private void ToggleSearchPanel()
+    {
+        _searchPanelOpen = !_searchPanelOpen;
+        if (_searchPanelOpen)
+        {
+            _filtersPanelOpen = false;
+            _sortMenu?.Close();
+        }
+    }
+
+    private void CloseSearchAndFilters()
+    {
+        _searchPanelOpen = false;
+        _filtersPanelOpen = false;
+    }
+
+    private void ToggleFiltersPanel()
+    {
+        _filtersPanelOpen = !_filtersPanelOpen;
+        if (_filtersPanelOpen)
+        {
+            _searchPanelOpen = false;
+            _sortMenu?.Close();
+        }
+    }
+
+    private void CloseSearchPopup()
+    {
+        _searchPanelOpen = false;
+    }
+
+    private void CloseFiltersPopup()
+    {
+        _filtersPanelOpen = false;
+    }
+
+    private async Task OnSearchKeyDown(KeyboardEventArgs args)
+    {
+        if (string.Equals(args.Key, "Enter", StringComparison.Ordinal))
+        {
+            await ApplySearchAsync();
+        }
+    }
+
+    private string BuildCustomersPath(TableState state, int skip, int take)
+    {
+        var query = new List<string>
+        {
+            $"skip={skip}",
+            $"take={take}"
+        };
+
+        AddQueryParameter(query, "search", _appliedSearchText);
+        AddQueryParameter(query, "cityFilter", _appliedCityFilter);
+        AddQueryParameter(query, "stateFilter", _appliedStateFilter);
+        var sortBy = HasMobileSort ? _mobileSortBy : state.SortLabel;
+        var sortDescending = HasMobileSort
+            ? _mobileSortDescending
+            : state.SortDirection == SortDirection.Descending;
+        if (HasMobileSort || (state.SortDirection != SortDirection.None && !string.IsNullOrWhiteSpace(state.SortLabel)))
+        {
+            AddQueryParameter(query, "sortBy", sortBy);
+            AddQueryParameter(query, "sortDescending", sortDescending.ToString().ToLowerInvariant());
+        }
+
+        return $"api/customers?{string.Join("&", query)}";
+    }
+
+    private static void AddQueryParameter(List<string> query, string name, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            query.Add($"{name}={Uri.EscapeDataString(value)}");
+        }
+    }
+
+    private static string FormatLocation(CustomerDto customer)
+    {
+        var parts = new[]
+        {
+            customer.City?.Trim(),
+            customer.State?.Trim()
+        };
+        return string.Join(", ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
+    }
+
+    private static string? NormalizeText(string? value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
+    private static Variant ToggleButtonVariant(bool isPanelOpen) =>
+        isPanelOpen ? Variant.Filled : Variant.Outlined;
+
+    private static string GetEditHref(Guid id) => $"customers/{id:D}/edit";
+}

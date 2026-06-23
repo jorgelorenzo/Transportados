@@ -1,0 +1,115 @@
+@page "/customers/new"
+@page "/customers/{Id:guid}/edit"
+@attribute [Authorize(Roles = TransportadosAccessMatrix.TenantManagerRolesCsv)]
+@inject ITransportadosApiClient Api
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>@(IsEdit ? "Editar cliente" : "Nuevo cliente") - Transportados</PageTitle>
+
+<MainHeaderActions>
+    <MudTooltip Text="Volver">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Outlined" Color="Color.Primary" Href="customers" aria-label="Volver" />
+    </MudTooltip>
+</MainHeaderActions>
+
+<MudPaper Class="pa-4" Elevation="1">
+    <EditForm Model="_form" OnValidSubmit="SaveAsync" FormName="customerForm">
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_form.FullName" Label="Nombre" Variant="Variant.Outlined" Required="true" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_form.Code" Label="Codigo" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_form.Email" Label="Email" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_form.Phone" Label="Telefono" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="8">
+                <MudTextField @bind-Value="_form.AddressLine1" Label="Direccion" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="_form.City" Label="Ciudad" Variant="Variant.Outlined" />
+            </MudItem>
+        </MudGrid>
+        <MudStack Row="true" Class="mt-4">
+            <MudTooltip Text="Guardar">
+                <MudIconButton ButtonType="ButtonType.Submit" Icon="@Icons.Material.Filled.Save" Variant="Variant.Filled" Color="Color.Primary" aria-label="Guardar" />
+            </MudTooltip>
+            <MudTooltip Text="Cancelar">
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Variant="Variant.Outlined" Color="Color.Default" Href="customers" aria-label="Cancelar" />
+            </MudTooltip>
+        </MudStack>
+    </EditForm>
+</MudPaper>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private bool IsEdit => Id != Guid.Empty;
+    private CustomerDto _form = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IsEdit)
+        {
+            await LoadCustomerAsync();
+        }
+    }
+
+    private async Task LoadCustomerAsync()
+    {
+        try
+        {
+            var item = await Api.GetAsync<CustomerDto>($"api/customers/{Id:D}");
+            if (item == null)
+            {
+                Snackbar.Add("Cliente no encontrado.", Severity.Error);
+                Navigation.NavigateTo("customers");
+                return;
+            }
+
+            _form = Clone(item);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            await Api.PostAsync<CustomerDto, CustomerDto>("api/customers", _form);
+            Snackbar.Add("Cliente guardado.", Severity.Success);
+            Navigation.NavigateTo("customers");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private static CustomerDto Clone(CustomerDto item) =>
+        new()
+        {
+            Id = item.Id,
+            TenantId = item.TenantId,
+            FullName = item.FullName,
+            Email = item.Email,
+            AddressLine1 = item.AddressLine1,
+            AddressLine2 = item.AddressLine2,
+            City = item.City,
+            State = item.State,
+            Phone = item.Phone,
+            Code = item.Code,
+            Latitud = item.Latitud,
+            Longitud = item.Longitud,
+            Notes = item.Notes
+        };
+}

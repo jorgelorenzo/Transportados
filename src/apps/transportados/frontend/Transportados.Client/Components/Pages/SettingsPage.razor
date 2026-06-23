@@ -1,0 +1,157 @@
+@page "/settings"
+@attribute [Authorize(Roles = TransportadosAccessMatrix.TenantManagerRolesCsv)]
+@inject ITransportadosApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>Configuracion - Transportados</PageTitle>
+
+<MainHeaderActions>
+    <MudTooltip Text="Guardar">
+        <MudIconButton Icon="@Icons.Material.Filled.Save"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Disabled="@(_isLoading || _settings == null)"
+                       OnClick="SaveAsync"
+                       aria-label="Guardar configuracion" />
+    </MudTooltip>
+</MainHeaderActions>
+
+@if (_isLoading && _settings == null)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
+}
+else if (_settings == null)
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">No se pudo cargar la configuracion.</MudAlert>
+}
+else
+{
+    <MudTabs Rounded="false" Elevation="0" PanelClass="pt-4">
+        <MudTabPanel Text="Empresa" Icon="@Icons.Material.Filled.Business">
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_settings.Name" Label="Nombre visible" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_settings.TechRoleLabel" Label="Etiqueta rol operador" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_settings.Highlighted" Label="Texto destacado" Variant="Variant.Outlined" Lines="3" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="_settings.NameOfficeOne" Label="Sucursal 1" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="_settings.AddressOfficeOne" Label="Direccion sucursal 1" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="_settings.ContactOfficeOne" Label="Contacto sucursal 1" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="_settings.NameOfficeTwo" Label="Sucursal 2" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="_settings.AddressOfficeTwo" Label="Direccion sucursal 2" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="_settings.ContactOfficeTwo" Label="Contacto sucursal 2" Variant="Variant.Outlined" />
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="SMTP" Icon="@Icons.Material.Filled.AlternateEmail" Disabled="@(!FeatureEnabled(TransportadosTenantFeatureAccess.Email))">
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_settings.SmtpHost" Label="Host" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudNumericField T="int" @bind-Value="_settings.SmtpPort" Label="Puerto" Variant="Variant.Outlined" Min="0" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudSwitch T="bool" @bind-Value="_settings.SmtpUseSSL" Color="Color.Primary" Label="SSL" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_settings.SmtpUser" Label="Usuario" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_settings.SmtpPass" Label="Clave" Variant="Variant.Outlined" InputType="InputType.Password" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_settings.EmailFrom" Label="Email remitente" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_settings.SendWOCopyTo" Label="Copias" Variant="Variant.Outlined" />
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Apariencia" Icon="@Icons.Material.Filled.Palette" Disabled="@(!FeatureEnabled(TransportadosTenantFeatureAccess.Appearance))">
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="_settings.AppTheme" Label="Tema" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="_settings.LogoMenu" Label="Logo menu" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="_settings.LogoImage" Label="Logo principal" Variant="Variant.Outlined" />
+                </MudItem>
+            </MudGrid>
+        </MudTabPanel>
+    </MudTabs>
+}
+
+@code {
+    private SettingsDto? _settings;
+    private TenantFeatureFlagsDto _features = new();
+    private bool _isLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _settings = await Api.GetAsync<SettingsDto>("api/settings");
+            _features = await Api.GetAsync<TenantFeatureFlagsDto>("api/settings/features") ?? new TenantFeatureFlagsDto();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_settings == null)
+        {
+            return;
+        }
+
+        _isLoading = true;
+        try
+        {
+            _settings = await Api.PostAsync<SettingsDto, SettingsDto>("api/settings", _settings);
+            Snackbar.Add("Configuracion guardada.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private bool FeatureEnabled(string feature) =>
+        TransportadosTenantFeatureAccess.IsEnabled(_features, feature);
+}

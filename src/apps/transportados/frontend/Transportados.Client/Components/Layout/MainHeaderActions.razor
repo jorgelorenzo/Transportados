@@ -1,0 +1,14 @@
+<SectionContent SectionName="MainHeaderActions">
+    <MudStack Row="true"
+              AlignItems="AlignItems.Center"
+              Justify="Justify.FlexEnd"
+              Spacing="1"
+              Class="page-header-actions">
+        @ChildContent
+    </MudStack>
+</SectionContent>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

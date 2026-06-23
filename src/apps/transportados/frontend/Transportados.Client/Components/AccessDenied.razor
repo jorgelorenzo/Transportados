@@ -1,0 +1,13 @@
+@inject TransportadosNavigationService TransportadosNavigation
+
+<MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-4">
+    No tenes permisos para acceder a esta pantalla.
+</MudAlert>
+
+<MudTooltip Text="Ir al inicio">
+    <MudIconButton Icon="@Icons.Material.Filled.Home"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="TransportadosNavigation.NavigateHomeAsync"
+                   aria-label="Ir al inicio" />
+</MudTooltip>

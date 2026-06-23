@@ -1,0 +1,213 @@
+@using System.Security.Claims
+@inherits LayoutComponentBase
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject TransportadosNavigationService TransportadosNavigation
+@inject ISnackbar Snackbar
+
+<MudPopoverProvider />
+<MudDialogProvider FullWidth="true"
+                   MaxWidth="MaxWidth.Medium"
+                   CloseOnEscapeKey="true" />
+<MudSnackbarProvider />
+
+<div class="page @(_isDesktopSidebarVisible ? "desktop-sidebar-visible" : "desktop-sidebar-hidden") @(_isMobileSidebarOpen ? "mobile-sidebar-open" : "mobile-sidebar-closed")">
+    <button type="button"
+            class="mobile-sidebar-backdrop"
+            @onclick="CloseMobileSidebar"
+            aria-label="Cerrar menu"></button>
+
+    <aside class="sidebar" aria-label="Navegacion principal">
+        <NavMenu OnNavigate="CloseMobileSidebar" ProfileLabel="@_profileLabel" />
+    </aside>
+
+    <main class="main-content">
+        <div class="top-row px-4 d-flex align-center justify-space-between">
+            <div class="header-leading">
+                <button type="button"
+                        class="menu-toggle-button mobile-menu-toggle"
+                        @onclick="ToggleMobileSidebar"
+                        aria-label="@(_isMobileSidebarOpen ? "Cerrar menu" : "Abrir menu")"
+                        aria-expanded="@_isMobileSidebarOpen">
+                    <MudIcon Icon="@(_isMobileSidebarOpen ? Icons.Material.Filled.Close : Icons.Material.Filled.Menu)" Size="Size.Medium" />
+                </button>
+                <button type="button"
+                        class="menu-toggle-button desktop-menu-toggle"
+                        @onclick="ToggleDesktopSidebar"
+                        aria-label="Mostrar u ocultar menu"
+                        aria-expanded="@_isDesktopSidebarVisible">
+                    <MudIcon Icon="@(_isDesktopSidebarVisible ? Icons.Material.Filled.MenuOpen : Icons.Material.Filled.Menu)" Size="Size.Medium" />
+                </button>
+                <AuthorizeView Context="headerAuthState">
+                    <Authorized>
+                        @{
+                            var headerTitle = ResolveHeaderTitle(headerAuthState.User);
+                        }
+                        @if (headerTitle != null)
+                        {
+                            <h1 class="@GetHeaderTitleClass(headerTitle)">@headerTitle.Text</h1>
+                        }
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+            <MudStack Class="header-actions" Row="true" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Spacing="1">
+                <PlatformContextSelector Options="_contextOptions"
+                                         SelectedLabel="@_headerContextSelectorLabel"
+                                         OnSelected="OnContextChanged"
+                                         MenuClass=""
+                                         ButtonClass="text-transform-none context-selector-button"
+                                         LabelClass="" />
+                <SectionOutlet SectionName="MainHeaderActions" />
+            </MudStack>
+        </div>
+
+        <article class="content px-4">
+            @if (_isRestoringSession)
+            {
+                <div class="d-flex justify-center align-center" style="min-height: 220px;">
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                </div>
+            }
+            else
+            {
+                @Body
+            }
+        </article>
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">x</span>
+</div>
+
+@code {
+    private IReadOnlyList<PlatformContextOption> _contextOptions = [];
+    private AuthenticatedContext? _context;
+    private string _selectedContextLabel = "Sin contexto";
+    private string _profileLabel = "Perfil";
+    private const string _headerContextSelectorLabel = " ";
+    private bool _isRestoringSession = true;
+    private bool _isDesktopSidebarVisible = true;
+    private bool _isMobileSidebarOpen;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await TransportadosNavigation.TryRestoreSessionOrNavigateToLoginAsync())
+        {
+            _isRestoringSession = false;
+            return;
+        }
+
+        _context = await AuthService.GetStoredContextAsync();
+        BuildContextOptions();
+        _isRestoringSession = false;
+    }
+
+    private async Task OnContextChanged(string key)
+    {
+        if (string.Equals(key, PlatformContextKey, StringComparison.Ordinal))
+        {
+            var (platformSuccess, platformErrorMessage) = await AuthService.SelectPlatformContextAsync();
+            if (!platformSuccess)
+            {
+                Snackbar.Add(platformErrorMessage ?? "No se pudo cambiar el contexto.", Severity.Error);
+                return;
+            }
+
+            _context = await AuthService.GetStoredContextAsync();
+            BuildContextOptions();
+            Snackbar.Add("Contexto actualizado.", Severity.Success);
+            NavigateToInitialTarget();
+            return;
+        }
+
+        var selected = _context?.TenantMemberships.FirstOrDefault(m => ContextKey(m) == key);
+        if (selected == null)
+        {
+            return;
+        }
+
+        var (success, errorMessage) = await AuthService.SelectContextAsync(selected);
+        if (!success)
+        {
+            Snackbar.Add(errorMessage ?? "No se pudo cambiar el contexto.", Severity.Error);
+            return;
+        }
+
+        _context = await AuthService.GetStoredContextAsync();
+        BuildContextOptions();
+        Snackbar.Add("Contexto actualizado.", Severity.Success);
+        NavigateToInitialTarget();
+    }
+
+    private void BuildContextOptions()
+    {
+        if (_context == null)
+        {
+            _contextOptions = [];
+            _selectedContextLabel = "Sin contexto";
+            _profileLabel = "Perfil";
+            return;
+        }
+
+        _contextOptions = _context.TenantMemberships
+            .Select(m => new PlatformContextOption(ContextKey(m), $"{m.TenantName} / {TransportadosDisplayLabels.Role(m.Role, _context.TechRoleLabel)}"))
+            .ToList();
+
+        if (_context.IsSuperAdmin)
+        {
+            _contextOptions = [new PlatformContextOption(PlatformContextKey, "Superadmin"), .. _contextOptions];
+        }
+
+        _selectedContextLabel = _context.TenantMemberships
+            .Where(m => m.Role == _context.ActiveRole && m.TenantId == _context.ActiveTenantId)
+            .Select(m => $"{m.TenantName} / {TransportadosDisplayLabels.Role(m.Role, _context.TechRoleLabel)}")
+            .FirstOrDefault()
+            ?? (_context.IsSuperAdmin ? "Superadmin" : ResolveContextFallbackLabel());
+
+        var profileName = string.IsNullOrWhiteSpace(_context.FullName) ? _context.Email : _context.FullName;
+        _profileLabel = profileName;
+    }
+
+    private const string PlatformContextKey = "superadmin";
+
+    private void ToggleDesktopSidebar()
+    {
+        _isDesktopSidebarVisible = !_isDesktopSidebarVisible;
+    }
+
+    private void ToggleMobileSidebar()
+    {
+        _isMobileSidebarOpen = !_isMobileSidebarOpen;
+    }
+
+    private void CloseMobileSidebar()
+    {
+        _isMobileSidebarOpen = false;
+    }
+
+    private TransportadosNavigationTitle? ResolveHeaderTitle(ClaimsPrincipal user) =>
+        TransportadosNavigationMatrix.ResolveCurrentTitleInfo(user, Navigation.ToBaseRelativePath(Navigation.Uri));
+
+    private static string GetHeaderTitleClass(TransportadosNavigationTitle title) =>
+        title.IsMenuItem ? "header-page-title" : "header-page-title header-page-title-persistent";
+
+    private void NavigateToInitialTarget()
+    {
+        TransportadosNavigation.TryNavigateToInitialTarget(_context);
+    }
+
+    private static string ContextKey(TenantMemberInfo membership) => $"{membership.Role}|{membership.TenantId:D}";
+
+    private string ResolveContextFallbackLabel()
+    {
+        if (_context == null || string.IsNullOrWhiteSpace(_context.ActiveRole))
+        {
+            return "Sin contexto";
+        }
+
+        return TransportadosDisplayLabels.Role(_context.ActiveRole, _context.TechRoleLabel);
+    }
+}

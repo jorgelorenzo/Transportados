@@ -1,0 +1,57 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Reflection
+
+<Router AppAssembly="@ResolvedAppAssembly" AdditionalAssemblies="@AdditionalAssemblies" NotFoundPage="typeof(Pages.NotFound)">
+    <Found Context="routeData">
+        @if (UsesLoginLayout(routeData.PageType))
+        {
+            <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.LoginLayout)" />
+        }
+        else if (IsPublicPage(routeData.PageType))
+        {
+            <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        }
+        else
+        {
+            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+                <NotAuthorized Context="authState">
+                    @if (authState.User.Identity?.IsAuthenticated == true)
+                    {
+                        <AccessDenied />
+                    }
+                    else
+                    {
+                        <RedirectToLogin />
+                    }
+                </NotAuthorized>
+                <Authorizing>
+                </Authorizing>
+            </AuthorizeRouteView>
+        }
+
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>
+
+@code {
+    [Parameter]
+    public Assembly? AppAssembly { get; set; }
+
+    [Parameter]
+    public IEnumerable<Assembly>? AdditionalAssemblies { get; set; }
+
+    private Assembly ResolvedAppAssembly => AppAssembly ?? typeof(Routes).Assembly;
+
+    private static bool UsesLoginLayout(Type pageType) =>
+        pageType == typeof(Pages.Login)
+        || pageType == typeof(Pages.Register)
+        || pageType == typeof(Pages.PasswordRecovery);
+
+    private static bool IsPublicPage(Type pageType) =>
+        pageType == typeof(Pages.Login)
+        || pageType == typeof(Pages.Register)
+        || pageType == typeof(Pages.PasswordRecovery)
+        || pageType == typeof(Pages.NotFound)
+        || pageType == typeof(Pages.Error)
+        || pageType == typeof(Pages.Logout);
+}

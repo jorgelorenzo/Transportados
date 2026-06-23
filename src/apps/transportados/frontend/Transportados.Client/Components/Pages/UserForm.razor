@@ -1,0 +1,132 @@
+@page "/users/new"
+@page "/users/{Id:guid}/edit"
+@attribute [Authorize(Roles = TransportadosAccessMatrix.AdminRolesCsv)]
+@inject ITransportadosApiClient Api
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>@(IsEdit ? "Editar usuario" : "Nuevo usuario") - Transportados</PageTitle>
+
+<MainHeaderActions>
+    <MudTooltip Text="Volver">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Outlined" Color="Color.Primary" Href="users" aria-label="Volver" />
+    </MudTooltip>
+</MainHeaderActions>
+
+<MudPaper Class="pa-4" Elevation="1">
+    <EditForm Model="_form" OnValidSubmit="SaveAsync" FormName="userForm">
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_form.FullName" Label="Nombre" Variant="Variant.Outlined" Required="true" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_form.Email" Label="Email" Variant="Variant.Outlined" Required="true" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_form.Password" Label="@PasswordLabel" Variant="Variant.Outlined" InputType="InputType.Password" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect T="string" @bind-Value="_form.Role" Label="Rol" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@Roles.Admin">Admin</MudSelectItem>
+                    <MudSelectItem Value="@Roles.Supervisor">Supervisor</MudSelectItem>
+                    <MudSelectItem Value="@Roles.Tech">@_techRoleLabel</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+        <MudStack Row="true" Class="mt-4">
+            <MudTooltip Text="Guardar">
+                <MudIconButton ButtonType="ButtonType.Submit" Icon="@Icons.Material.Filled.Save" Variant="Variant.Filled" Color="Color.Primary" aria-label="Guardar" />
+            </MudTooltip>
+            <MudTooltip Text="Cancelar">
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Variant="Variant.Outlined" Color="Color.Default" Href="users" aria-label="Cancelar" />
+            </MudTooltip>
+        </MudStack>
+    </EditForm>
+</MudPaper>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private bool IsEdit => Id != Guid.Empty;
+    private string PasswordLabel => IsEdit ? "Clave nueva" : "Clave";
+    private UserSaveRequestDto _form = NewForm();
+    private string _techRoleLabel = Roles.DefaultTechRoleLabel;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSettingsAsync();
+
+        if (IsEdit)
+        {
+            await LoadUserAsync();
+        }
+    }
+
+    private async Task LoadSettingsAsync()
+    {
+        try
+        {
+            var settings = await Api.GetAsync<SettingsDto>("api/settings");
+            _techRoleLabel = TransportadosDisplayLabels.ResolveTechRoleLabel(settings?.TechRoleLabel);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task LoadUserAsync()
+    {
+        try
+        {
+            var item = await Api.GetAsync<UserDto>($"api/users/{Id:D}");
+            if (item == null)
+            {
+                Snackbar.Add("Usuario no encontrado.", Severity.Error);
+                Navigation.NavigateTo("users");
+                return;
+            }
+
+            _form = ToForm(item);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            await Api.PostAsync<UserSaveRequestDto, UserDto>("api/users", _form);
+            Snackbar.Add("Usuario guardado.", Severity.Success);
+            Navigation.NavigateTo("users");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private static UserSaveRequestDto ToForm(UserDto item)
+    {
+        var membership = item.TenantMemberships.FirstOrDefault();
+        return new UserSaveRequestDto
+        {
+            Id = item.Id,
+            FullName = item.FullName,
+            Email = item.Email,
+            Role = Roles.Normalize(membership?.Role) ?? Roles.Tech,
+            TenantId = membership?.TenantId,
+            Photo = item.Photo
+        };
+    }
+
+    private static UserSaveRequestDto NewForm() =>
+        new()
+        {
+            Role = Roles.Tech
+        };
+}

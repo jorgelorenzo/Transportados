@@ -1,0 +1,91 @@
+@page "/users"
+@attribute [Authorize(Roles = TransportadosAccessMatrix.AdminRolesCsv)]
+@inject ITransportadosApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>Usuarios - Transportados</PageTitle>
+
+<MainHeaderActions>
+    <MudTooltip Text="Nuevo usuario">
+        <MudIconButton Icon="@Icons.Material.Filled.Add" Variant="Variant.Filled" Color="Color.Primary" Href="users/new" aria-label="Nuevo usuario" />
+    </MudTooltip>
+</MainHeaderActions>
+
+<ServerPagedTable TItem="UserDto" @ref="_usersTable" ServerData="LoadUsersPageAsync">
+    <HeaderContent>
+        <MudTh>Nombre</MudTh>
+        <MudTh>Email</MudTh>
+        <MudTh>Contextos</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Nombre">@context.FullName</MudTd>
+        <MudTd DataLabel="Email">@context.Email</MudTd>
+        <MudTd DataLabel="Contextos">@string.Join(", ", context.TenantMemberships.Select(m => TransportadosDisplayLabels.Role(m.Role, _techRoleLabel)))</MudTd>
+        <MudTd>
+            <MudTooltip Text="Editar">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary" Href="@GetEditHref(context.Id)" aria-label="Editar usuario" />
+            </MudTooltip>
+        </MudTd>
+    </RowTemplate>
+</ServerPagedTable>
+
+@code {
+    private ServerPagedTable<UserDto>? _usersTable;
+    private string _techRoleLabel = Roles.DefaultTechRoleLabel;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var settings = await Api.GetAsync<SettingsDto>("api/settings");
+            _techRoleLabel = TransportadosDisplayLabels.ResolveTechRoleLabel(settings?.TechRoleLabel);
+
+            if (_usersTable != null)
+            {
+                await _usersTable.ReloadServerDataAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task<TableData<UserDto>> LoadUsersPageAsync(TableState state, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var skip = state.Page * state.PageSize;
+            var take = state.PageSize <= 0 ? 20 : state.PageSize;
+            var response = await Api.GetAsync<UserListResponseDto>($"api/users?skip={skip}&take={take}");
+            return new TableData<UserDto>
+            {
+                Items = response?.Users ?? [],
+                TotalItems = response?.Total ?? 0
+            };
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+            return new TableData<UserDto>
+            {
+                Items = [],
+                TotalItems = 0
+            };
+        }
+    }
+
+    private static string GetEditHref(Guid id) => $"users/{id:D}/edit";
+}

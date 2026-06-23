@@ -1,0 +1,37 @@
+#blazor-error-ui {
+    color-scheme: light only;
+    background: var(--mud-palette-surface);
+    border-top: 1px solid var(--mud-palette-divider);
+    bottom: 0;
+    box-sizing: border-box;
+    color: var(--mud-palette-error);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
+
+.status-bar-safe-area {
+    display: none;
+}
+
+@supports (-webkit-touch-callout: none) {
+    .status-bar-safe-area {
+        background-color: var(--mud-palette-surface);
+        display: flex;
+        height: env(safe-area-inset-top);
+        position: sticky;
+        top: 0;
+        width: 100%;
+        z-index: 1;
+    }
+}

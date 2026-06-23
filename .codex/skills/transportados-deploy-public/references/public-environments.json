@@ -1,0 +1,50 @@
+{
+  "environments": {
+    "staging": {
+      "vmHost": "10.0.0.125",
+      "vmUser": "rodrigo",
+      "requiresExplicitApproval": true,
+      "components": {
+        "backend": {
+          "remotePath": "~/apps/transportados-api-staging",
+          "serviceName": "transportados-api-staging",
+          "bootstrapScript": "ops/scripts/deploy-api-to-vm.ps1",
+          "bootstrapArgs": ["-EnvironmentName", "staging", "-SeedingEnabled", true, "-SeedTransportados", true],
+          "healthUrl": "https://transportados-api-staging.transportados.com/api/health",
+          "expectedStatusCode": 200
+        },
+        "frontend": {
+          "remotePath": "~/apps/transportados-web-staging",
+          "serviceName": "transportados-web-staging",
+          "bootstrapScript": "ops/scripts/deploy-blazor-to-vm.ps1",
+          "bootstrapArgs": ["-EnvironmentName", "staging", "-ApiBaseUrl", "https://transportados-api-staging.transportados.com/"],
+          "healthUrl": "https://transportados-app-staging.transportados.com",
+          "expectedStatusCode": 200
+        }
+      }
+    },
+    "prod": {
+      "vmHost": "10.0.0.125",
+      "vmUser": "rodrigo",
+      "requiresExplicitApproval": true,
+      "components": {
+        "backend": {
+          "remotePath": "~/apps/transportados-api",
+          "serviceName": "transportados-api",
+          "bootstrapScript": "ops/scripts/deploy-api-to-vm.ps1",
+          "bootstrapArgs": ["-EnvironmentName", "prod", "-SeedingEnabled", true, "-SeedTransportados", true],
+          "healthUrl": "https://transportados-api.transportados.com/api/health",
+          "expectedStatusCode": 200
+        },
+        "frontend": {
+          "remotePath": "~/apps/transportados-web",
+          "serviceName": "transportados-web",
+          "bootstrapScript": "ops/scripts/deploy-blazor-to-vm.ps1",
+          "bootstrapArgs": ["-EnvironmentName", "prod"],
+          "healthUrl": "https://transportados-app.transportados.com",
+          "expectedStatusCode": 200
+        }
+      }
+    }
+  }
+}

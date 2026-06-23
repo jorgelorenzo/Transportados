@@ -1,0 +1,10 @@
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.Extensions.Options;
+global using Microsoft.Playwright;
+global using Transportados.Domain.Api.Domain;
+global using Transportados.Persistence.DataAccess;
+global using Transportados.Persistence.Seeding;
+global using System.Text.RegularExpressions;
+global using Testcontainers.MsSql;
+global using Transportados.Platform.Core;
+global using static Microsoft.Playwright.Assertions;
