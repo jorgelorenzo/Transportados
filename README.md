@@ -158,6 +158,18 @@ If `adb devices` already shows the phone as `device`, `.\start-mobile.ps1` can s
 .\start-mobile.ps1 -AndroidTarget Emulator
 ```
 
+For a persistent emulator configuration, set the SDK root that contains the AVD system image and optionally pin the AVD name:
+
+```text
+TRANSPORTADOS_DEV_ANDROID_TARGET=Emulator
+TRANSPORTADOS_DEV_ANDROID_SDK_ROOT=C:\Program Files (x86)\Android\android-sdk
+TRANSPORTADOS_DEV_ANDROID_AVD_NAME=pixel_7_-_api_35_0
+TRANSPORTADOS_DEV_ANDROID_DEVICE=
+TRANSPORTADOS_DEV_ANDROID_WIFI_DEVICE=
+```
+
+When the target is `Emulator`, `start-mobile.ps1` ignores physical-device and Wi-Fi endpoints. It validates the selected AVD system image, repairs stale generated APK permissions when needed, deploys the Debug app through the .NET Android tooling, and confirms that the app remains running.
+
 ## Seeded test users
 
 These credentials are created by Transportados seeding for local/demo validation. They are not production secrets.
@@ -182,15 +194,15 @@ Use this checklist to expose Transportados dev endpoints:
 
 1. Create or reuse a Cloudflare Tunnel in Zero Trust (`cloudflared tunnel create <transportados-dev-tunnel>`).
 2. Add tunnel routes (ingress) for Transportados hostnames:
-   - `transportados-api-rj.desarrollo.net.ar` -> `http://localhost:7306`
-   - `transportados-app-rj.desarrollo.net.ar` -> `http://localhost:5142`
+- `transportados-api-jl.desarrollo.net.ar` -> `http://localhost:7306`
+- `transportados-app-jl.desarrollo.net.ar` -> `http://localhost:5142`
 3. Add a fallback ingress rule (`http_status:404`) at the end of the ingress list.
 4. Create DNS records in Cloudflare for both hostnames as CNAMEs to the tunnel (`<tunnel-id>.cfargotunnel.com`) with proxy enabled.
 5. If access control is required, configure Cloudflare Access policies for the two applications.
 6. Run the tunnel from your dev machine (`cloudflared tunnel run <transportados-dev-tunnel>`) while Transportados is running locally.
 7. Validate endpoints:
-   - API: `https://transportados-api-rj.desarrollo.net.ar/api/health`
-   - Web: `https://transportados-app-rj.desarrollo.net.ar`
+- API: `https://transportados-api-jl.desarrollo.net.ar/api/health`
+- Web: `https://transportados-app-jl.desarrollo.net.ar`
 
 `start.ps1` default public URLs match these hostnames and prints them at startup.
 

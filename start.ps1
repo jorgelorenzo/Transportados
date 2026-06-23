@@ -105,11 +105,11 @@ $frontendLocalUrl = "http://localhost:5142"
 $defaultBackendConnectionString = "Server=localhost,$sqlHostPort;Database=Transportados;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;"
 
 if ([string]::IsNullOrWhiteSpace($BackendPublicUrl)) {
-    $BackendPublicUrl = "https://transportados-api-rj.desarrollo.net.ar/api/health"
+$BackendPublicUrl = "https://transportados-api-jl.desarrollo.net.ar/api/health"
 }
 
 if ([string]::IsNullOrWhiteSpace($FrontendPublicUrl)) {
-    $FrontendPublicUrl = "https://transportados-app-rj.desarrollo.net.ar"
+$FrontendPublicUrl = "https://transportados-app-jl.desarrollo.net.ar"
 }
 
 if ([string]::IsNullOrWhiteSpace($BackendConnectionString)) {

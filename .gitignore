@@ -432,3 +432,6 @@ FodyWeavers.xsd
 data/work-order-photos
 .codex/skills/transportados-deploy-public/references/public-environments.local.json
 src/apps/transportados/backend/Transportados.Api/data/work-order-photos-dev
+
+# Local Android signing keys
+dist/keystore/

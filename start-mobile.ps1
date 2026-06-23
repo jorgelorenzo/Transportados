@@ -7,6 +7,7 @@ param(
     [switch]$SkipEmulatorStart,
     [int]$BackendStartupTimeoutSec = 0,
     [int]$AndroidStartupTimeoutSec = 180,
+    [string]$AndroidSdkRoot = $env:TRANSPORTADOS_DEV_ANDROID_SDK_ROOT,
     [string]$AndroidPackageName = $env:TRANSPORTADOS_ANDROID_PACKAGE_NAME,
     [string]$AndroidAvdName = $env:TRANSPORTADOS_DEV_ANDROID_AVD_NAME,
     [string]$AndroidDevice = $env:TRANSPORTADOS_DEV_ANDROID_DEVICE,
@@ -108,7 +109,7 @@ $sqlHostPort = 1436
 $backendLocalUrl = "http://localhost:7306"
 $backendHealthUrl = "$backendLocalUrl/api/health"
 $backendSwaggerLocalUrl = "$backendLocalUrl/swagger"
-$mobileBackendUrl = "https://transportados-api-rj.desarrollo.net.ar/"
+$mobileBackendUrl = "https://transportados-api-jl.desarrollo.net.ar/"
 $defaultBackendConnectionString = "Server=localhost,$sqlHostPort;Database=Transportados;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;"
 
 if ([string]::IsNullOrWhiteSpace($BackendConnectionString)) {
@@ -121,6 +122,20 @@ if ([string]::IsNullOrWhiteSpace($AndroidPackageName)) {
 
 if ($SkipBuild -and $CleanMobileBuild) {
     throw "Cannot use -SkipBuild and -CleanMobileBuild together."
+}
+
+if ([string]::IsNullOrWhiteSpace($AndroidSdkRoot)) {
+    $AndroidSdkRoot = Get-DotEnvValue -Path $localEnvPath -Name "TRANSPORTADOS_DEV_ANDROID_SDK_ROOT"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($AndroidSdkRoot)) {
+    $AndroidSdkRoot = Normalize-WindowsPath ([Environment]::ExpandEnvironmentVariables($AndroidSdkRoot.Trim().Trim('"')))
+    if (-not (Test-Path -LiteralPath $AndroidSdkRoot -PathType Container)) {
+        throw "Configured Android SDK root was not found: '$AndroidSdkRoot'."
+    }
+
+    [Environment]::SetEnvironmentVariable("ANDROID_SDK_ROOT", $AndroidSdkRoot, "Process")
+    [Environment]::SetEnvironmentVariable("ANDROID_HOME", $AndroidSdkRoot, "Process")
 }
 
 if ([string]::IsNullOrWhiteSpace($AndroidAvdName)) {
@@ -136,7 +151,14 @@ if ([string]::IsNullOrWhiteSpace($AndroidWifiDevice)) {
 }
 
 if ([string]::IsNullOrWhiteSpace($AndroidTarget)) {
-    $AndroidTarget = Get-DotEnvValue -Path $localEnvPath -Name "TRANSPORTADOS_DEV_ANDROID_TARGET"
+    $configuredAndroidTarget = Get-DotEnvValue -Path $localEnvPath -Name "TRANSPORTADOS_DEV_ANDROID_TARGET"
+    if (-not [string]::IsNullOrWhiteSpace($configuredAndroidTarget)) {
+        if (@("Physical", "Emulator", "Any") -notcontains $configuredAndroidTarget) {
+            throw "Invalid Android target '$configuredAndroidTarget'. Use Physical, Emulator, or Any."
+        }
+
+        $AndroidTarget = $configuredAndroidTarget
+    }
 }
 
 if ([string]::IsNullOrWhiteSpace($AndroidTarget)) {
@@ -449,11 +471,6 @@ function Resolve-AndroidTool {
         [string[]]$SdkRelativePaths = @()
     )
 
-    $command = Get-Command $ExecutableName -ErrorAction SilentlyContinue
-    if ($command) {
-        return $command.Source
-    }
-
     $sdkRoots = @($env:ANDROID_HOME, $env:ANDROID_SDK_ROOT)
     if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
         $sdkRoots += Join-Path $env:LOCALAPPDATA "Android\Sdk"
@@ -479,7 +496,36 @@ function Resolve-AndroidTool {
         }
     }
 
+    $command = Get-Command $ExecutableName -ErrorAction SilentlyContinue
+    if ($command) {
+        return $command.Source
+    }
+
     return $null
+}
+
+function Assert-AndroidAvdSystemImage {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$AvdName,
+        [Parameter(Mandatory = $true)]
+        [string]$SdkRoot
+    )
+
+    $avdConfigPath = Join-Path $env:USERPROFILE ".android\avd\$AvdName.avd\config.ini"
+    if (-not (Test-Path -LiteralPath $avdConfigPath)) {
+        throw "Android AVD configuration was not found: '$avdConfigPath'."
+    }
+
+    $imageSystemDirectory = Get-DotEnvValue -Path $avdConfigPath -Name "image.sysdir.1"
+    if ([string]::IsNullOrWhiteSpace($imageSystemDirectory)) {
+        throw "Android AVD '$AvdName' does not declare image.sysdir.1 in '$avdConfigPath'."
+    }
+
+    $systemImagePath = Join-Path $SdkRoot $imageSystemDirectory
+    if (-not (Test-Path -LiteralPath $systemImagePath -PathType Container)) {
+        throw "Android AVD '$AvdName' requires system image '$imageSystemDirectory', but it was not found under SDK '$SdkRoot'. Set TRANSPORTADOS_DEV_ANDROID_SDK_ROOT to the SDK that contains the image."
+    }
 }
 
 function Get-AndroidDevices {
@@ -569,10 +615,79 @@ function Start-AndroidEmulator {
 
         $selectedAvd = $availableAvds[0]
     }
+    else {
+        $availableAvds = Get-AndroidAvds -EmulatorPath $EmulatorPath
+        if ($availableAvds -notcontains $selectedAvd) {
+            throw "Configured Android AVD '$selectedAvd' was not found. Available AVDs: $($availableAvds -join ', ')."
+        }
+    }
+
+    $emulatorDirectory = Split-Path -Parent $EmulatorPath
+    $emulatorSdkRoot = Split-Path -Parent $emulatorDirectory
+    Assert-AndroidAvdSystemImage -AvdName $selectedAvd -SdkRoot $emulatorSdkRoot
 
     Write-Host "Starting Android emulator '$selectedAvd'..." -ForegroundColor Cyan
     Start-Process -FilePath $EmulatorPath -ArgumentList @("-avd", $selectedAvd) | Out-Null
     return $selectedAvd
+}
+
+function Reset-AndroidApkPermissions {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectPath,
+        [Parameter(Mandatory = $true)]
+        [string]$BuildConfiguration
+    )
+
+    $projectDirectory = Split-Path -Parent $ProjectPath
+    $androidOutputDirectory = Join-Path $projectDirectory "bin\$BuildConfiguration\net10.0-android"
+    if (-not (Test-Path -LiteralPath $androidOutputDirectory)) {
+        return
+    }
+
+    $signedApks = @(Get-ChildItem -LiteralPath $androidOutputDirectory -File -Filter "*-Signed.apk" -ErrorAction SilentlyContinue)
+    foreach ($signedApk in $signedApks) {
+        $resetOutput = & icacls.exe $signedApk.FullName /reset 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to reset permissions for generated APK '$($signedApk.FullName)': $($resetOutput -join ' ')"
+        }
+    }
+}
+
+function Wait-ForAndroidAppLaunch {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$AdbPath,
+        [Parameter(Mandatory = $true)]
+        [string]$DeviceSerial,
+        [Parameter(Mandatory = $true)]
+        [string]$PackageName,
+        [Parameter(Mandatory = $true)]
+        [System.Diagnostics.Process]$DeploymentProcess,
+        [int]$TimeoutSec = 180
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    while ((Get-Date) -lt $deadline) {
+        $appProcessId = ((& $AdbPath -s $DeviceSerial shell pidof $PackageName 2>$null) -join "").Trim()
+        if (-not [string]::IsNullOrWhiteSpace($appProcessId)) {
+            Start-Sleep -Seconds 3
+            $confirmedProcessId = ((& $AdbPath -s $DeviceSerial shell pidof $PackageName 2>$null) -join "").Trim()
+            if (-not [string]::IsNullOrWhiteSpace($confirmedProcessId)) {
+                return $confirmedProcessId
+            }
+        }
+
+        if ($DeploymentProcess.HasExited) {
+            if ($DeploymentProcess.ExitCode -ne 0) {
+                throw "Mobile deployment process exited with code $($DeploymentProcess.ExitCode) before '$PackageName' remained running on '$DeviceSerial'."
+            }
+        }
+
+        Start-Sleep -Seconds 2
+    }
+
+    throw "Timed out waiting for Android app '$PackageName' to start on '$DeviceSerial'."
 }
 
 function Wait-ForAndroidDevice {
@@ -676,6 +791,8 @@ $mobileMsBuildArgs = $restoreMsBuildArgs + @(
     "/p:TransportadosAndroidPackageName=$AndroidPackageName"
 )
 
+Reset-AndroidApkPermissions -ProjectPath $mobileProject -BuildConfiguration $Configuration
+
 if (-not $SkipBuild) {
     Write-Host "Building Transportados backend..." -ForegroundColor Cyan
     $backendBuildArgs = @("build", $backendProject, "--configuration", $Configuration) + $restoreMsBuildArgs
@@ -753,20 +870,31 @@ if (-not $adbPath) {
 }
 
 & $adbPath start-server | Out-Null
-$androidWifiEndpoint = Select-FirstNonEmpty -Values @(
-    $AndroidWifiDevice,
-    $(if (Test-IsAdbWifiEndpoint -Device $AndroidDevice) { $AndroidDevice } else { "" })
-)
+$preferredAndroidDevice = $AndroidDevice
+if ($AndroidTarget -eq "Emulator" -and -not [string]::IsNullOrWhiteSpace($preferredAndroidDevice) -and $preferredAndroidDevice -notlike "emulator-*") {
+    Write-Host "Ignoring configured physical Android device '$preferredAndroidDevice' because AndroidTarget is Emulator." -ForegroundColor DarkYellow
+    $preferredAndroidDevice = ""
+}
 
-if (-not [string]::IsNullOrWhiteSpace($androidWifiEndpoint)) {
-    Connect-AndroidWifiDevice -AdbPath $adbPath -DeviceEndpoint $androidWifiEndpoint
-    if ([string]::IsNullOrWhiteSpace($AndroidDevice)) {
-        $AndroidDevice = $androidWifiEndpoint
+if ($AndroidTarget -ne "Emulator") {
+    $androidWifiEndpoint = Select-FirstNonEmpty -Values @(
+        $AndroidWifiDevice,
+        $(if (Test-IsAdbWifiEndpoint -Device $preferredAndroidDevice) { $preferredAndroidDevice } else { "" })
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($androidWifiEndpoint)) {
+        Connect-AndroidWifiDevice -AdbPath $adbPath -DeviceEndpoint $androidWifiEndpoint
+        if ([string]::IsNullOrWhiteSpace($preferredAndroidDevice)) {
+            $preferredAndroidDevice = $androidWifiEndpoint
+        }
     }
+}
+elseif (-not [string]::IsNullOrWhiteSpace($AndroidWifiDevice)) {
+    Write-Host "Ignoring configured Android WiFi endpoint '$AndroidWifiDevice' because AndroidTarget is Emulator." -ForegroundColor DarkYellow
 }
 
 $readyEmulator = @(Get-AndroidDevices -AdbPath $adbPath | Where-Object { $_.State -eq "device" -and $_.IsEmulator } | Select-Object -First 1)
-$shouldStartEmulator = $AndroidTarget -eq "Emulator" -and [string]::IsNullOrWhiteSpace($AndroidDevice) -and -not $readyEmulator -and -not $SkipEmulatorStart
+$shouldStartEmulator = $AndroidTarget -eq "Emulator" -and [string]::IsNullOrWhiteSpace($preferredAndroidDevice) -and -not $readyEmulator -and -not $SkipEmulatorStart
 if ($shouldStartEmulator) {
     $emulatorPath = Resolve-AndroidTool -ExecutableName "emulator.exe" -SdkRelativePaths @("emulator\emulator.exe")
     if (-not $emulatorPath) {
@@ -776,7 +904,7 @@ if ($shouldStartEmulator) {
     Start-AndroidEmulator -EmulatorPath $emulatorPath -AvdName $AndroidAvdName | Out-Null
 }
 
-$targetDevice = Wait-ForAndroidDevice -AdbPath $adbPath -PreferredDevice $AndroidDevice -TimeoutSec $AndroidStartupTimeoutSec -TargetKind $AndroidTarget
+$targetDevice = Wait-ForAndroidDevice -AdbPath $adbPath -PreferredDevice $preferredAndroidDevice -TimeoutSec $AndroidStartupTimeoutSec -TargetKind $AndroidTarget
 Wait-ForAndroidBoot -AdbPath $adbPath -DeviceSerial $targetDevice.Serial -TimeoutSec $AndroidStartupTimeoutSec
 
 if ($ResetAndroidApp) {
@@ -794,13 +922,17 @@ if ($ResetAndroidApp) {
 }
 
 Write-Host "Starting mobile app on Android device '$($targetDevice.Serial)'..." -ForegroundColor Cyan
-$mobileNoBuild = if ($SkipBuild) { " --no-build" } else { "" }
-$mobileRun = "dotnet run --project `"$mobileProject`" --configuration $Configuration --framework net10.0-android$mobileNoBuild /p:RestoreConfigFile=`"$restoreConfigPath`" /p:RestoreRootConfigDirectory=`"$repoRoot`" /p:TransportadosAndroidPackageName=`"$AndroidPackageName`""
+$mobileRun = "dotnet run --project `"$mobileProject`" --configuration $Configuration --framework net10.0-android --no-build /p:RestoreConfigFile=`"$restoreConfigPath`" /p:RestoreRootConfigDirectory=`"$repoRoot`" /p:TransportadosAndroidPackageName=`"$AndroidPackageName`""
+
+Reset-AndroidApkPermissions -ProjectPath $mobileProject -BuildConfiguration $Configuration
+& $adbPath -s $targetDevice.Serial shell am force-stop $AndroidPackageName 2>$null | Out-Null
 
 $previousAndroidSerial = [Environment]::GetEnvironmentVariable("ANDROID_SERIAL", "Process")
 [Environment]::SetEnvironmentVariable("ANDROID_SERIAL", $targetDevice.Serial, "Process")
 try {
-    Start-Process -FilePath "powershell" -WorkingDirectory $repoRoot -ArgumentList @("-NoExit", "-Command", $mobileRun) | Out-Null
+    $mobileCommand = "$mobileRun; exit `$LASTEXITCODE"
+    $mobileProcess = Start-Process -FilePath "powershell" -WorkingDirectory $repoRoot -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $mobileCommand) -PassThru
+    $mobileAppProcessId = Wait-ForAndroidAppLaunch -AdbPath $adbPath -DeviceSerial $targetDevice.Serial -PackageName $AndroidPackageName -DeploymentProcess $mobileProcess -TimeoutSec $AndroidStartupTimeoutSec
 }
 finally {
     [Environment]::SetEnvironmentVariable("ANDROID_SERIAL", $previousAndroidSerial, "Process")
@@ -812,5 +944,6 @@ Write-Host "  Backend (local):          $backendHealthUrl"
 Write-Host "  Backend Swagger (local):  $backendSwaggerLocalUrl"
 Write-Host "  Mobile API URL:           $mobileBackendUrl"
 Write-Host "  Android target:           $($targetDevice.Serial)"
+Write-Host "  Mobile app process:       $mobileAppProcessId"
 Write-Host ""
-Write-Host "Use Ctrl+C in each spawned PowerShell window to stop dotnet processes."
+Write-Host "Use Ctrl+C in the backend PowerShell window to stop the local API."
