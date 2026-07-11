@@ -21,7 +21,8 @@
 
 ## Architecture Decision Records
 - Before making implementation changes, read `docs/adr/index.md` and any relevant accepted ADRs to verify the change does not contradict recorded architectural decisions.
-- If a change intentionally deviates from an accepted ADR, document the reason in the related Transportados issue and update or supersede the ADR as part of the same work.
+- Accepted ADRs are historical records: do not materially rewrite an accepted ADR to change its decision or rationale. Minor typo, formatting, or broken-link fixes are allowed when they do not change the recorded decision.
+- If a change intentionally deviates from an accepted ADR, document the reason in the related Transportados issue, create a new ADR that supersedes the previous one, update the previous ADR status/metadata only to point to the superseding ADR, and keep cross-links/index status current.
 
 ## Build, Test, and Development Commands
 - Restore: `dotnet restore Transportados.App.sln --source https://api.nuget.org/v3/index.json`
