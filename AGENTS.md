@@ -128,3 +128,9 @@
 ## Git Worktrees
 
 - Do not create or use Git worktrees unless the user explicitly asks for one. Use the repository's ordinary checkout and branches instead.
+
+## Git Commit And Push
+
+- When the user asks for `commit`, `push`, or `commit/push`, work on the current branch.
+- Do not create or switch branches, create worktrees, or open pull requests unless the user explicitly asks for that specific action.
+- Before pushing, report the current branch. If it is `main`, push to `main` unless it is protected or the user directs otherwise.
