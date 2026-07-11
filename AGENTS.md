@@ -16,7 +16,7 @@
 - Use `$ui-flow-preview` before writing implementation plans or editing product code for tasks that touch screens, forms, navigation, dashboards, modals, Blazor Web UI components, browser UI tests, parity UI flows, or customer-facing UI copy.
 - The preview gate requires inspecting existing routes/components/tests, producing a UI Flow Brief, showing a low-fidelity HTML preview with screens/states/transitions, and recording user validation before the final implementation plan.
 - Keep previews temporary and untracked. Prefer the browser visual companion when available; otherwise use an ignored temporary artifact path.
-- Temporary preview paths may be shared during the conversation for validation, but tracked docs and local issues must store only the decision summary.
+- Temporary preview paths may be shared during the conversation for validation, but tracked docs and local issues must store durable preview context instead of artifact links: accepted flow, covered screens/states, requested changes, final decisions, and textual wireframes when useful.
 - If the user explicitly waives the preview, record that waiver and the reason in the related local issue or final plan before implementation.
 
 ## Architecture Decision Records
@@ -102,7 +102,7 @@
 - Read `docs/issues/README.md` before creating, editing, or closing Transportados issues.
 - Active implementation must be tracked in local Transportados issues, not remote trackers.
 - Do not add remote issue URLs or remote issue metadata to tracked docs.
-- Evidence in tracked docs must be durable summaries, not links to temporary local artifacts.
+- Evidence in tracked docs must be durable summaries, not links to temporary local artifacts. When previews, screenshots, traces, or logs contain useful context, copy or summarize that content inline before omitting the artifact.
 
 ## Agent Boundaries
 - Prefer Transportados-local implementation and validation evidence under `docs/issues`.
@@ -124,3 +124,7 @@
 ## Canonical Local Issue Commands
 - Use `$create-issue` as the canonical issue-drafting/creation command in Transportados sessions.
 - Use `$create-qa-issue` as the canonical QA child-issue command in Transportados sessions.
+
+## Git Worktrees
+
+- Do not create or use Git worktrees unless the user explicitly asks for one. Use the repository's ordinary checkout and branches instead.
